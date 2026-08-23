@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 
@@ -10,16 +11,18 @@ public class AIAnswerService
         BaseAddress = new Uri("http://127.0.0.1:11434")
     };
 
-    public async Task<string> GenerateAnswer(string question)
+    public async IAsyncEnumerable<string> GenerateAnswerStream(
+        string question,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var prompt = $"""
 You are EchoPrep AI.
 
-Answer this interview question professionally.
+Answer ONLY the interview question.
 
-Give:
-1. A 30-second answer.
-2. A detailed answer with a practical example.
+Format:
+1. 30-second answer.
+2. Detailed answer with a practical example.
 
 Question:
 {question}
@@ -29,22 +32,68 @@ Question:
         {
             model = "qwen2.5:1.5b",
             prompt,
-            stream = false
+            stream = true,
+            keep_alive = "30m",
+            options = new
+            {
+                temperature = 0.2,
+                num_predict = 800,
+                num_ctx = 8192
+            }
         };
 
-        var response = await _http.PostAsync(
-            "/api/generate",
-            new StringContent(
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/generate")
+        {
+            Content = new StringContent(
                 JsonSerializer.Serialize(payload),
                 Encoding.UTF8,
-                "application/json"));
+                "application/json")
+        };
+
+        using var response = await _http.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
 
         response.EnsureSuccessStatusCode();
 
-        var json = await response.Content.ReadAsStringAsync();
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
 
-        using var doc = JsonDocument.Parse(json);
+        while (true)
+        {
+            var line = await reader.ReadLineAsync();
 
-        return doc.RootElement.GetProperty("response").GetString() ?? "";
+            if (line is null)
+                yield break;
+
+            if (string.IsNullOrWhiteSpace(line))
+                continue;
+
+            string? chunk = null;
+            bool done = false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(line);
+
+                if (doc.RootElement.TryGetProperty("response", out var text))
+                    chunk = text.GetString();
+
+                if (doc.RootElement.TryGetProperty("done", out var doneProp))
+                    done = doneProp.GetBoolean();
+            }
+            catch
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(chunk))
+                yield return chunk;
+
+            // Let the stream close naturally after the last chunk
+            if (done)
+                break;
+        }
     }
 }

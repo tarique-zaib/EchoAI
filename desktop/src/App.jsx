@@ -113,6 +113,7 @@ export default function App() {
         <Orb
           level={level}
           isListening={isListening}
+          status={status}
           startListening={startInterview}
           stopListening={stopInterview}
         />

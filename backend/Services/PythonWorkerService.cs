@@ -125,11 +125,13 @@ public class PythonWorkerService
 
                 Console.WriteLine("Generating AI answer...");
 
-                var answer = await _ai.GenerateAnswer(line);
+                await foreach (var chunk in _ai.GenerateAnswerStream(line))
+                {
+                    await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
+                }
 
                 Console.WriteLine("AI answer completed.");
-
-                await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", answer);
+                
                 await _hub.Clients.All.SendAsync("AnswerCompleted");
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Listening");
             }
@@ -203,7 +205,8 @@ public class PythonWorkerService
             if (!question.Contains("?") && question.Split(' ').Length < 3)
                 return;
 
-            await _aiLock.WaitAsync(token);
+            if (!await _aiLock.WaitAsync(0, token))
+            return;
 
             try
             {
@@ -212,9 +215,10 @@ public class PythonWorkerService
 
                 Console.WriteLine("Generating AI answer...");
 
-                var answer = await _ai.GenerateAnswer(question);
-
-                await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", answer);
+                await foreach (var chunk in _ai.GenerateAnswerStream(question))
+                {
+                    await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
+                }
                 await _hub.Clients.All.SendAsync("AnswerCompleted");
 
                 Console.WriteLine("AI answer completed.");

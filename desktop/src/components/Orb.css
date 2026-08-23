@@ -1,0 +1,67 @@
+.orb-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 30px 0;
+}
+
+.orb {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: transform .12s ease;
+  position: relative;
+  background: radial-gradient(circle, #33c6ff 0%, #4533d6 80%);
+  box-shadow: 0 0 80px rgba(0,180,255,.35);
+}
+
+.mic-icon{
+  font-size:58px;
+}
+
+/* Listening */
+.listening .orb{
+  animation: pulse .9s infinite;
+}
+
+/* AI thinking / answering */
+.ai-answering .orb{
+  animation: breathe 1.8s infinite;
+  background: radial-gradient(circle,#9d6bff 0%,#5b2cff 80%);
+}
+
+/* Idle */
+.idle .orb{
+  animation: idleGlow 3s infinite;
+  opacity:.95;
+}
+
+/* Loading */
+.loading-model... .orb{
+  animation: spinGlow 2s linear infinite;
+}
+
+@keyframes pulse{
+  0%{box-shadow:0 0 30px rgba(0,212,255,.35);}
+  50%{box-shadow:0 0 90px rgba(0,212,255,.8);}
+  100%{box-shadow:0 0 30px rgba(0,212,255,.35);}
+}
+
+@keyframes breathe{
+  0%{transform:scale(1);}
+  50%{transform:scale(1.08);}
+  100%{transform:scale(1);}
+}
+
+@keyframes idleGlow{
+  50%{box-shadow:0 0 60px rgba(0,180,255,.45);}
+}
+
+@keyframes spinGlow{
+  from{transform:rotate(0deg);}
+  to{transform:rotate(360deg);}
+}

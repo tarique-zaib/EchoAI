@@ -1,52 +1,35 @@
-import { motion } from "framer-motion";
-import OrbRing from "./OrbRing";
+import "./Orb.css";
 
 export default function Orb({
   level,
   isListening,
+  status,
   startListening,
   stopListening,
 }) {
-  const scale = isListening ? 1.05 + level * 0.4 : 1;
-  const glow = isListening ? 120 + level * 150 : 70;
+  const scale =
+    status === "Listening"
+      ? 1 + Math.min(level / 180, 0.18)
+      : status === "AI Answering"
+      ? 1.05
+      : 1;
+
+  const handleClick = () => {
+    if (isListening) stopListening();
+    else startListening();
+  };
 
   return (
-    <div
-      style={{
-        position: "relative",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        cursor: "pointer",
-      }}
-      onClick={() =>
-        isListening ? stopListening() : startListening()
-      }
-    >
-      <OrbRing level={level} />
-
-      <motion.div
-        animate={{
-          scale,
-          boxShadow: `0 0 ${glow}px rgba(34,211,238,.9),
-                      0 0 ${glow * 1.5}px rgba(79,70,229,.5)`,
-        }}
-        transition={{ duration: 0.08 }}
-        style={{
-          width: 220,
-          height: 220,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle,#22D3EE,#4F46E5,#050816)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 42,
-          color: "white",
-        }}
+    <div className={`orb-wrapper ${status.toLowerCase().replace(/\s+/g, "-")}`}>
+      <div
+        className="orb"
+        onClick={handleClick}
+        style={{ transform: `scale(${scale})` }}
       >
-        {isListening ? "🎙️" : "◎"}
-      </motion.div>
+        <span className="mic-icon">
+          {status === "AI Answering" ? "🧠" : "🎙️"}
+        </span>
+      </div>
     </div>
   );
 }
