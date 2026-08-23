@@ -1,0 +1,33 @@
+.session-card{
+  width:min(1000px,92%);
+  margin:18px auto;
+  padding:22px;
+  border-radius:18px;
+  background:rgba(8,18,45,.92);
+  border:1px solid rgba(24,212,255,.18);
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+  color:white;
+}
+
+.session-item{
+  text-align:center;
+}
+
+.session-item h2{
+  margin:8px 0 0;
+  color:#18d4ff;
+  font-size:2rem;
+}
+
+.session-label{
+  color:#9ab5d6;
+  font-size:.9rem;
+}
+
+.divider{
+  width:1px;
+  height:50px;
+  background:rgba(255,255,255,.15);
+}

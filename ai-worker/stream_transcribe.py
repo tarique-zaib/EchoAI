@@ -16,11 +16,13 @@ audio_queue = queue.Queue()
 last_question = ""
 last_time = 0
 is_processing = False
+processing_lock = threading.Lock()
 
 print("Loading model...", flush=True)
 
+# Faster model for CPU
 model = WhisperModel(
-    "base",
+    "tiny",
     device="cpu",
     compute_type="int8"
 )
@@ -49,7 +51,6 @@ def clean_text(text):
     for pattern, value in replacements.items():
         text = re.sub(pattern, value, text, flags=re.IGNORECASE)
 
-    # Fix "Azure Service Bus Bus"
     text = re.sub(
         r"Azure Service Bus\s+Bus\b",
         "Azure Service Bus",
@@ -60,9 +61,10 @@ def clean_text(text):
     # Remove consecutive duplicate words
     words = text.split()
     cleaned = []
-    for w in words:
-        if not cleaned or cleaned[-1].lower() != w.lower():
-            cleaned.append(w)
+
+    for word in words:
+        if not cleaned or cleaned[-1].lower() != word.lower():
+            cleaned.append(word)
 
     return " ".join(cleaned).strip()
 
@@ -70,10 +72,10 @@ def clean_text(text):
 def transcribe(audio):
     global last_question, last_time, is_processing
 
-    if is_processing:
-        return
-
-    is_processing = True
+    with processing_lock:
+        if is_processing:
+            return
+        is_processing = True
 
     try:
         segments, _ = model.transcribe(
@@ -110,7 +112,8 @@ def transcribe(audio):
         print(text, flush=True)
 
     finally:
-        is_processing = False
+        with processing_lock:
+            is_processing = False
 
 
 def worker():
@@ -122,6 +125,7 @@ def worker():
 
         buffer = np.concatenate([buffer, chunk])
 
+        # Wait until at least 1 second of audio
         if len(buffer) < RATE:
             continue
 
@@ -134,12 +138,12 @@ def worker():
         if speech:
             last_end = speech[-1]["end"]
 
-            # Wait for ~250 ms silence
-            if len(buffer) - last_end > RATE // 4:
+            # Trigger after ~120 ms silence
+            if len(buffer) - last_end >= RATE // 8:
                 audio = buffer[:last_end]
 
-                # Keep 80 ms tail to avoid clipping words
-                tail = int(RATE * 0.08)
+                # Keep 50 ms tail so next question isn't clipped
+                tail = int(RATE * 0.05)
                 buffer = buffer[max(0, last_end - tail):]
 
                 threading.Thread(
@@ -148,8 +152,10 @@ def worker():
                     daemon=True
                 ).start()
 
-        elif len(buffer) > RATE * 3:
-            buffer = np.zeros(0, dtype=np.float32)
+        else:
+            # Prevent infinite buffer growth
+            if len(buffer) > RATE * 2:
+                buffer = np.zeros(0, dtype=np.float32)
 
 
 threading.Thread(target=worker, daemon=True).start()

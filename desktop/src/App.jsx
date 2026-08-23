@@ -7,7 +7,8 @@ import AIPanel from "./components/AIPanel";
 import useMicrophone from "./components/useMicrophone";
 
 import connection from "./services/signalr";
-
+import ConfidenceMeter from "./components/ConfidenceMeter";
+import SessionStats from "./components/SessionStats";
 export default function App() {
   const level = useMicrophone();
 
@@ -15,6 +16,7 @@ export default function App() {
   const [transcript, setTranscript] = useState("");
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("Idle");
+  const [questionCount, setQuestionCount] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -34,9 +36,12 @@ export default function App() {
 
     // ---------------- Transcript ----------------
     connection.on("ReceiveTranscript", (text) => {
-      console.log("Transcript:", text);
-
       setTranscript((prev) => (prev ? prev + "\n" + text : text));
+      setQuestionCount((prev) => prev + 1);
+    });
+
+    connection.on("ClearAnswer", () => {
+      setAnswer("");
     });
 
     // ---------------- AI Streaming ----------------
@@ -75,9 +80,10 @@ export default function App() {
 
       connection.off("ReceiveStatus");
       connection.off("ReceiveTranscript");
+      connection.off("ClearAnswer");
       connection.off("AnswerStarted");
       connection.off("ReceiveAnswerChunk");
-      connection.off("AnswerCompleted");
+      connection.off("AnswerCompleted");      
 
       if (connection.state === "Connected") {
         connection.stop();
@@ -88,6 +94,7 @@ export default function App() {
   const startInterview = async () => {
     setTranscript("");
     setAnswer("");
+    setQuestionCount(0);
     setStatus("Loading model...");
 
     await fetch("http://localhost:5153/api/interview/start", {
@@ -117,6 +124,8 @@ export default function App() {
           startListening={startInterview}
           stopListening={stopInterview}
         />
+        {/* <SessionStats isListening={isListening} questionCount={questionCount} /> */}
+        {/* <ConfidenceMeter level={level} isListening={isListening} /> */}
       </div>
 
       <Transcript

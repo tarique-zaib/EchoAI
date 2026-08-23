@@ -4,39 +4,66 @@ export default function useMicrophone() {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
+    let audioContext;
+    let analyser;
+    let source;
     let animationId;
+    let stream;
 
-    async function init() {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true
-      });
+    const start = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-      const ctx = new AudioContext();
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
-      const source = ctx.createMediaStreamSource(stream);
-      source.connect(analyser);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 512;
+        analyser.smoothingTimeConstant = 0.8;
 
-      const data = new Uint8Array(analyser.frequencyBinCount);
+        source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
 
-      const update = () => {
-        analyser.getByteFrequencyData(data);
+        const data = new Uint8Array(analyser.fftSize);
 
-        let sum = 0;
-        for (let i = 0; i < data.length; i++) sum += data[i];
+        const update = () => {
+          analyser.getByteTimeDomainData(data);
 
-        setLevel(sum / data.length / 255);
+          let sum = 0;
 
-        animationId = requestAnimationFrame(update);
-      };
+          for (let i = 0; i < data.length; i++) {
+            const sample = (data[i] - 128) / 128;
+            sum += sample * sample;
+          }
 
-      update();
-    }
+          const rms = Math.sqrt(sum / data.length);
 
-    init();
+          // Convert RMS to a stable 0–100 confidence value
+          const confidence = Math.min(100, Math.round(rms * 400));
 
-    return () => cancelAnimationFrame(animationId);
+          setLevel(confidence);
+
+          animationId = requestAnimationFrame(update);
+        };
+
+        update();
+      } catch (err) {
+        console.error("Microphone error:", err);
+      }
+    };
+
+    start();
+
+    return () => {
+      if (animationId) cancelAnimationFrame(animationId);
+
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      if (audioContext) {
+        audioContext.close();
+      }
+    };
   }, []);
 
   return level;

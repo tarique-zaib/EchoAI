@@ -10,8 +10,10 @@ public class PythonWorkerService
     private readonly AIAnswerService _ai;
 
     private Process? _python;
+
     private readonly SemaphoreSlim _aiLock = new(1, 1);
     private readonly object _bufferLock = new();
+
     private string _currentQuestion = "";
     private CancellationTokenSource? _debounceCts;
 
@@ -67,6 +69,15 @@ public class PythonWorkerService
             }
         };
 
+        foreach (var p in Process.GetProcessesByName("python"))
+        {
+            try
+            {
+                p.Kill(true);
+            }
+            catch { }
+        }
+
         _python.Start();
 
         Console.WriteLine($"Python PID: {_python.Id}");
@@ -92,6 +103,7 @@ public class PythonWorkerService
 
             Console.WriteLine($"PYTHON: {line}");
 
+            // Worker status messages
             if (line.StartsWith("Loading model"))
             {
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Loading model...");
@@ -104,45 +116,90 @@ public class PythonWorkerService
                 continue;
             }
 
-            if (!await _aiLock.WaitAsync(0))
-                continue;
+            // Send transcript immediately
+            await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
+
+            // Keep latest transcript
+            lock (_bufferLock)
+            {
+                _currentQuestion = line;
+            }
+
+            // Restart debounce timer
+            _debounceCts?.Cancel();
+            _debounceCts = new CancellationTokenSource();
+
+            _ = ProcessFinalQuestion(_debounceCts.Token);
+        }
+    }
+
+    private async Task ProcessFinalQuestion(CancellationToken token)
+    {
+        try
+        {
+            // Wait until user finishes speaking
+            await Task.Delay(1200, token);
+
+            string question;
+
+            lock (_bufferLock)
+            {
+                question = _currentQuestion.Trim();
+            }
+
+            if (question.Length < 5)
+                return;
+
+            // Only generate an answer for actual interview questions.
+            var words = question.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            if (!question.Contains("?") &&
+                !question.StartsWith("What", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("How", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("Why", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("When", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("Where", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("Explain", StringComparison.OrdinalIgnoreCase) &&
+                !question.StartsWith("Difference", StringComparison.OrdinalIgnoreCase) &&
+                words.Length < 4)
+            {
+                return;
+            }
+
+            // Ignore duplicate generation
+            if (!await _aiLock.WaitAsync(0, token))
+                return;
 
             try
             {
-                await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
+                Console.WriteLine("Generating AI answer...");
 
-                lock (_bufferLock)
-                {
-                    _currentQuestion = line;
-                }
-
-                _debounceCts?.Cancel();
-                _debounceCts = new CancellationTokenSource();
-
-                _ = ProcessFinalQuestion(_debounceCts.Token);
+                await _hub.Clients.All.SendAsync("ClearAnswer");
                 await _hub.Clients.All.SendAsync("AnswerStarted");
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
 
-                Console.WriteLine("Generating AI answer...");
-
-                await foreach (var chunk in _ai.GenerateAnswerStream(line))
+                await foreach (var chunk in _ai.GenerateAnswerStream(question))
                 {
                     await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
                 }
 
                 Console.WriteLine("AI answer completed.");
-                
+
                 await _hub.Clients.All.SendAsync("AnswerCompleted");
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Listening");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"AI ERROR: {ex.Message}");
             }
             finally
             {
                 _aiLock.Release();
             }
+        }
+        catch (TaskCanceledException)
+        {
+            // User kept talking
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"AI ERROR: {ex.Message}");
         }
     }
 
@@ -185,54 +242,5 @@ public class PythonWorkerService
         _python = null;
 
         Console.WriteLine("Python worker stopped.");
-    }
-
-    private async Task ProcessFinalQuestion(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(300, token);
-
-            string question;
-            lock (_bufferLock)
-            {
-                question = _currentQuestion.Trim();
-            }
-
-            if (question.Length < 5)
-                return;
-
-            if (!question.Contains("?") && question.Split(' ').Length < 3)
-                return;
-
-            if (!await _aiLock.WaitAsync(0, token))
-            return;
-
-            try
-            {
-                await _hub.Clients.All.SendAsync("AnswerStarted");
-                await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
-
-                Console.WriteLine("Generating AI answer...");
-
-                await foreach (var chunk in _ai.GenerateAnswerStream(question))
-                {
-                    await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
-                }
-                await _hub.Clients.All.SendAsync("AnswerCompleted");
-
-                Console.WriteLine("AI answer completed.");
-
-                await _hub.Clients.All.SendAsync("ReceiveStatus", "Listening");
-            }
-            finally
-            {
-                _aiLock.Release();
-            }
-        }
-        catch (TaskCanceledException)
-        {
-            // User kept talking
-        }
     }
 }
