@@ -29,25 +29,44 @@
   margin-bottom: 16px;
 }
 
-.question-card h2 {
-  color: white;
-  margin: 0;
-
-  font-size: 34px;
-  font-weight: 650;
-  line-height: 1.28;
-
-  letter-spacing: -0.02em;
-}
-
 .question-card h2{
-    animation:questionFade .35s ease;
+    margin:0;
+
+    color:white;
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight:700;
+    line-height:1.25;
+    letter-spacing:-0.03em;
+
+    /* Better wrapping */
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+    text-wrap: balance;
+
+    max-width: 95%;
+
+    animation: questionFade .35s ease;
 }
 
+.question-card h2 {
+  animation: questionFade 0.35s ease;
+}
+
+@keyframes questionFade {
+  from {
+    opacity: 0.4;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 @keyframes questionFade{
     from{
-        opacity:.4;
-        transform:translateY(6px);
+        opacity:0;
+        transform:translateY(10px);
     }
     to{
         opacity:1;
