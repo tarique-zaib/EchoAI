@@ -9,9 +9,10 @@ import useMicrophone from "./components/useMicrophone";
 import connection from "./services/signalr";
 import ConfidenceMeter from "./components/ConfidenceMeter";
 import SessionStats from "./components/SessionStats";
+import InterviewLauncher from "./components/InterviewLauncher";
 export default function App() {
   const level = useMicrophone();
-
+  const [started, setStarted] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [answer, setAnswer] = useState("");
@@ -54,7 +55,7 @@ export default function App() {
     connection.on("ReceiveAnswerChunk", (chunk) => {
       console.log("AI chunk received:", chunk);
       setAnswer((prev) => prev + chunk);
-      setPulseKey(prev => prev + 1);
+      setPulseKey((prev) => prev + 1);
     });
 
     connection.on("AnswerCompleted", () => {
@@ -112,6 +113,10 @@ export default function App() {
     setIsListening(false);
     setStatus("Idle");
   };
+
+  if (!started) {
+    return <InterviewLauncher onStart={() => setStarted(true)} />;
+  }
 
   return (
     <div className="app">

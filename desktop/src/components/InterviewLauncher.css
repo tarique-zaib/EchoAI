@@ -1,0 +1,68 @@
+.launcher{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    gap:18px;
+}
+
+.launcher-orb{
+    width:170px;
+    height:170px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    background:
+      radial-gradient(circle at 35% 30%,#7de8ff,#18d4ff 45%,#5b2cff);
+
+    box-shadow:
+      0 0 140px rgba(24,212,255,.35);
+
+    animation:launcherFloat 3s ease-in-out infinite;
+}
+
+.launcher-core{
+    font-size:52px;
+}
+
+.launcher h1{
+    color:white;
+    font-size:54px;
+    margin:0;
+    letter-spacing:-.04em;
+}
+
+.launcher p{
+    color:#9fb3d9;
+    font-size:20px;
+    max-width:560px;
+    line-height:1.8;
+}
+
+.launcher button{
+    margin-top:12px;
+    padding:16px 34px;
+    border:none;
+    border-radius:16px;
+    cursor:pointer;
+
+    background:linear-gradient(135deg,#18d4ff,#5b2cff);
+    color:white;
+    font-size:18px;
+    font-weight:600;
+}
+
+.launcher-note{
+    color:#6f89b7;
+    font-size:14px;
+}
+
+@keyframes launcherFloat{
+    50%{
+        transform:translateY(-8px);
+    }
+}
