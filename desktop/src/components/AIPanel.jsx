@@ -1,39 +1,49 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import "./AIPanel.css";
 
-export default function AIPanel({ answer }) {
-  const answerRef = useRef(null);
+export default function AIPanel({ answer, status }) {
+  const [displayed, setDisplayed] = useState("");
 
-  // Auto-scroll while streaming
   useEffect(() => {
-    answerRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
-  }, [answer]);
+    if (answer.startsWith(displayed)) {
+      const timer = setTimeout(() => {
+        setDisplayed(answer);
+      }, 25);
+
+      return () => clearTimeout(timer);
+    } else {
+      setDisplayed(answer);
+    }
+  }, [answer, displayed]);
 
   return (
-    <div className="ai-panel">
-      <div className="ai-header">🧠 AI Suggested Answer</div>
+    <section className="answer-panel">
+      <div className="answer-header">
+        <div className="answer-icon">🧠</div>
+        <h2>AI Answer</h2>
+      </div>
 
-      {answer ? (
-        <>
-          <div className="markdown-body">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {answer}
-            </ReactMarkdown>
-            <div ref={answerRef} />
-          </div>
+      <div className="markdown-body">
+        {displayed ? (
+          <>
+            <ReactMarkdown>{displayed}</ReactMarkdown>
 
-          <span className="typing-cursor">▋</span>
-        </>
-      ) : (
-        <p className="waiting-text">
-          Waiting for an interview question...
-        </p>
-      )}
-    </div>
+            {status === "AI Answering" && (
+              <span className="streaming-cursor"></span>
+            )}
+          </>
+        ) : (
+          <ReactMarkdown>
+            {`Start speaking. I'll generate a structured interview answer with:
+
+- **30-Second Answer**
+- **Detailed Answer**
+- **Practical Example**
+- **Interview Tip**`}
+          </ReactMarkdown>
+        )}
+      </div>
+    </section>
   );
 }

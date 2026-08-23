@@ -1,69 +1,89 @@
-.ai-panel {
-  margin: 40px auto;
-  width: min(1000px, 92%);
-  background: rgba(6, 18, 48, 0.92);
-  border: 1px solid rgba(0, 212, 255, 0.25);
-  border-radius: 24px;
-  padding: 28px;
-  color: white;
-  box-shadow: 0 0 40px rgba(0, 180, 255, 0.12);
+.answer-panel {
+  width: min(1120px, 94%);
+  margin: 18px auto 70px;
+  padding: 36px 42px;
+  min-height: 220px;
+
+  border-radius: 28px;
+  background: rgba(15, 28, 61, 0.82);
+  backdrop-filter: blur(24px);
+
+  border: 1px solid rgba(91, 44, 255, 0.18);
+
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+
+  transition: border-color 0.25s ease;
 }
 
-.ai-header {
-  text-align: center;
-  font-size: 2rem;
-  font-weight: bold;
+.answer-panel:hover {
+  border-color: rgba(24, 212, 255, 0.18);
+}
+
+/* ---------- Header ---------- */
+
+.answer-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.answer-icon {
+  font-size: 34px;
+}
+
+.answer-header h2 {
+  margin: 0;
   color: #18d4ff;
-  margin-bottom: 24px;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-.waiting-text {
-  text-align: center;
-  color: #93a4c3;
-  font-size: 1.05rem;
+/* ---------- Placeholder ---------- */
+
+.answer-placeholder {
+  color: #8fa7d5;
+  font-size: 18px;
+  line-height: 1.9;
 }
+
+/* ---------- Markdown ---------- */
 
 .markdown-body {
-  line-height: 1.8;
-  font-size: 1.08rem;
-  color: #eef5ff;
+  color: white;
+  font-size: 18px;
+  line-height: 1.9;
+  animation: fadeIn 0.25s ease;
 }
 
-.markdown-body h1,
-.markdown-body h2,
-.markdown-body h3 {
-  color: #18d4ff;
-  margin: 24px 0 12px;
-}
-
-.markdown-body h1 {
-  font-size: 2rem;
-}
+/* Section headings (30-Second Answer, etc.) */
 
 .markdown-body h2 {
-  font-size: 1.55rem;
+  color: white;
+  font-size: 28px;
+  font-weight: 700;
+
+  margin: 34px 0 14px;
+  padding-bottom: 10px;
+
+  border-bottom: 1px solid rgba(24, 212, 255, 0.12);
 }
 
-.markdown-body h3 {
-  font-size: 1.25rem;
-}
+/* Paragraphs */
 
 .markdown-body p {
-  margin: 14px 0;
+  color: #dbe7ff;
+  margin: 12px 0;
 }
 
-.markdown-body strong {
-  color: white;
-  font-weight: 700;
-}
-
-.markdown-body em {
-  color: #c7d8ff;
-}
+/* Lists */
 
 .markdown-body ul,
 .markdown-body ol {
-  padding-left: 24px;
+  padding-left: 22px;
   margin: 14px 0;
 }
 
@@ -71,30 +91,59 @@
   margin: 8px 0;
 }
 
-.markdown-body blockquote {
-  border-left: 4px solid #18d4ff;
-  padding-left: 16px;
-  color: #b8c8e8;
-  margin: 20px 0;
+/* Bold */
+
+.markdown-body strong {
+  color: white;
 }
+
+/* Inline code */
 
 .markdown-body code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 6px;
-  border-radius: 6px;
-  color: #7ee7ff;
+  background: #162754;
+  padding: 3px 8px;
+  border-radius: 8px;
+  color: #8be9ff;
 }
+
+/* Code blocks */
 
 .markdown-body pre {
-  background: #0b1220;
-  border: 1px solid rgba(24, 212, 255, 0.15);
-  border-radius: 12px;
-  padding: 16px;
-  overflow-x: auto;
-  margin: 20px 0;
+  background: #0b1533;
+  padding: 18px;
+  border-radius: 14px;
+  overflow: auto;
+  border: 1px solid rgba(24, 212, 255, 0.12);
 }
 
-.markdown-body pre code {
-  background: transparent;
-  padding: 0;
+/* Fade animation */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0.85;
+    transform: translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Streaming cursor */
+
+.streaming-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 22px;
+  margin-left: 4px;
+  background: #18d4ff;
+  vertical-align: middle;
+  animation: blink 0.9s infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }

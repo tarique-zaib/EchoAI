@@ -17,6 +17,7 @@ export default function App() {
   const [answer, setAnswer] = useState("");
   const [status, setStatus] = useState("Idle");
   const [questionCount, setQuestionCount] = useState(0);
+  const [pulseKey, setPulseKey] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +54,7 @@ export default function App() {
     connection.on("ReceiveAnswerChunk", (chunk) => {
       console.log("AI chunk received:", chunk);
       setAnswer((prev) => prev + chunk);
+      setPulseKey(prev => prev + 1);
     });
 
     connection.on("AnswerCompleted", () => {
@@ -83,7 +85,7 @@ export default function App() {
       connection.off("ClearAnswer");
       connection.off("AnswerStarted");
       connection.off("ReceiveAnswerChunk");
-      connection.off("AnswerCompleted");      
+      connection.off("AnswerCompleted");
 
       if (connection.state === "Connected") {
         connection.stop();
@@ -113,28 +115,20 @@ export default function App() {
 
   return (
     <div className="app">
-      <h1>EchoPrep AI</h1>
-      <p>Practice interviews like you're already hired.</p>
+      <header className="header">
+        <div>
+          <h1>EchoPrep AI</h1>
+          <p>Interview Copilot</p>
+        </div>
 
-      <div className="orb-container">
-        <Orb
-          level={level}
-          isListening={isListening}
-          status={status}
-          startListening={startInterview}
-          stopListening={stopInterview}
-        />
-        {/* <SessionStats isListening={isListening} questionCount={questionCount} /> */}
-        {/* <ConfidenceMeter level={level} isListening={isListening} /> */}
-      </div>
+        <div className="live">Live</div>
+      </header>
 
-      <Transcript
-        transcript={transcript}
-        isListening={isListening}
-        status={status}
-      />
+      <Orb status={status} pulseKey={pulseKey} />
 
-      <AIPanel answer={answer} />
+      <Transcript transcript={transcript} />
+
+      <AIPanel answer={answer} status={status} />
     </div>
   );
 }
