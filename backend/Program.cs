@@ -1,4 +1,5 @@
 using backend.Hubs;
+using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -6,14 +7,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddSingleton<PythonWorkerService>();
+builder.Services.AddControllers();
+builder.Services.AddSingleton<AIAnswerService>();
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("DesktopApp", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+        policy
+            .WithOrigins("http://localhost:5173")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -33,6 +39,8 @@ app.MapGet("/", () => new
     status = "Running",
     version = "0.1.0"
 });
+
+app.MapControllers();
 
 app.MapHub<InterviewHub>("/interviewHub");
 
