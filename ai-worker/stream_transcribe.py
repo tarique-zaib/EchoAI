@@ -4,12 +4,13 @@ import re
 import numpy as np
 import sounddevice as sd
 import time
+import soundcard as sc
 
 from faster_whisper import WhisperModel
 from silero_vad import load_silero_vad, get_speech_timestamps
 
 RATE = 16000
-BLOCK = 512
+BLOCK = 2048
 
 audio_queue = queue.Queue()
 
@@ -121,7 +122,11 @@ def worker():
 
     while True:
         chunk = audio_queue.get()
-        chunk = chunk[:, 0].astype(np.float32)
+
+        if chunk.ndim == 2:
+            chunk = chunk.mean(axis=1)
+
+        chunk = chunk.astype(np.float32)
 
         buffer = np.concatenate([buffer, chunk])
 
@@ -160,12 +165,41 @@ def worker():
 
 threading.Thread(target=worker, daemon=True).start()
 
-with sd.InputStream(
-    samplerate=RATE,
-    channels=1,
-    dtype="float32",
-    blocksize=BLOCK,
-    callback=audio_callback,
-):
-    while True:
-        threading.Event().wait(1)
+# ---------------------------------------------
+# Windows System Audio Capture (WASAPI Loopback)
+# ---------------------------------------------
+
+USE_SYSTEM_AUDIO = True   # False = Microphone
+
+if USE_SYSTEM_AUDIO:
+    speaker = sc.default_speaker()
+
+    print(f"Using Windows output: {speaker.name}", flush=True)
+
+    # Open the speaker's loopback device
+    loopback = sc.get_microphone(
+        id=str(speaker.id),
+        include_loopback=True
+    )
+
+    with loopback.recorder(samplerate=RATE) as recorder:
+        while True:
+            data = recorder.record(numframes=2048)
+
+            if data.size == 0:
+                continue
+
+            audio_queue.put(data.astype(np.float32))
+
+else:
+    print("Using microphone input", flush=True)
+
+    with sd.InputStream(
+        samplerate=RATE,
+        channels=1,
+        dtype="float32",
+        blocksize=BLOCK,
+        callback=audio_callback,
+    ):
+        while True:
+            threading.Event().wait(1)
