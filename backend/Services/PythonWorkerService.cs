@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
+using System.Text.RegularExpressions;
 
 namespace backend.Services;
 
@@ -9,6 +10,8 @@ public class PythonWorkerService
 {
     private readonly IHubContext<InterviewHub> _hub;
     private readonly AIAnswerService _ai;
+    private string _lastTranscript = "";
+    private DateTime _lastTranscriptTime = DateTime.MinValue;
 
     private Process? _python;
     private volatile bool _suppressCandidateSpeech = false;
@@ -68,6 +71,53 @@ public class PythonWorkerService
 
         // Natural spoken interview question
         return text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 6;
+    }
+
+    private static bool IsContinuation(string previous, string current)
+    {
+        if (string.IsNullOrWhiteSpace(previous))
+            return false;
+
+        current = current.Trim().ToLowerInvariant();
+
+        string[] continuationWords =
+        {
+        "actually",
+        "sorry",
+        "wait",
+        "rather",
+        "instead",
+        "i mean",
+        "let me rephrase",
+        "compare",
+        "difference",
+        "and",
+        "also",
+        "plus"
+    };
+
+        return continuationWords.Any(current.StartsWith);
+    }
+
+    private static string CleanTranscript(string text)
+    {
+        text = text.Trim();
+
+        text = Regex.Replace(
+            text,
+            @"^Explained\b",
+            "Explain",
+            RegexOptions.IgnoreCase);
+
+        text = Regex.Replace(text, @"\s+", " ");
+
+        text = Regex.Replace(
+            text,
+            @"\b(\w+)\s+\1\b",
+            "$1",
+            RegexOptions.IgnoreCase);
+
+        return text;
     }
 
     public void Start()
@@ -188,15 +238,38 @@ public class PythonWorkerService
         StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            // Always show transcript in UI
-            await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
-
             // NEW: Only interviewer-like questions trigger AI
             var isQuestion = IsLikelyInterviewQuestion(line);
-            Console.WriteLine($"QUESTION DETECTOR: {isQuestion} | {line}");
+            var isContinuation = IsContinuation(_lastTranscript, line);
 
-            if (!isQuestion)
+            Console.WriteLine($"QUESTION DETECTOR: {isQuestion} | CONT: {isContinuation} | {line}");
+
+            if (!isQuestion && !isContinuation)
                 continue;
+
+            line = CleanTranscript(line);
+
+            // Ignore exact duplicates
+            if (string.Equals(
+                    line,
+                    _lastTranscript,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // Merge interrupted speech spoken within 2 seconds
+            if ((DateTime.Now - _lastTranscriptTime).TotalSeconds < 2 &&
+                IsContinuation(_lastTranscript, line))
+            {
+                line = $"{_lastTranscript} {line}";
+            }
+
+            _lastTranscript = line;
+            _lastTranscriptTime = DateTime.Now;
+
+            // Update UI with merged transcript
+            await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
 
             lock (_bufferLock)
             {
@@ -239,7 +312,7 @@ public class PythonWorkerService
     {
         try
         {
-            await Task.Delay(600, token);
+            await Task.Delay(900, token);
 
             string question;
 
@@ -344,6 +417,18 @@ public class PythonWorkerService
 
         _python.Dispose();
         _python = null;
+
+        _lastTranscript = "";
+        _lastTranscriptTime = DateTime.MinValue;
+        _currentQuestion = "";
+        _lastAiAnswer = "";
+        _suppressCandidateSpeech = false;
+
+        _sessionQuestions.Clear();
+        _sessionAnswers.Clear();
+
+        _debounceCts?.Cancel();
+        _debounceCts = null;
 
         Console.WriteLine("Python worker stopped.");
     }
