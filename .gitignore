@@ -1,7 +1,22 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Electron
+electron/node_modules/
+
+# Build
+dist/
+out/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# .NET
 bin/
 obj/
-**/bin/
-**/obj/
-.vs/
-.env
-appsettings.json
+
+# Uploads (optional)
+backend/uploads/

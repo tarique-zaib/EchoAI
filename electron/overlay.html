@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="overlay.css" />
+  </head>
+  <body>
+    <div class="header">
+      <div class="status">
+        <span class="dot"></span>
+        <span class="status-text">Listening</span>
+      </div>
+
+      <div class="controls">
+        <button id="pin">📌</button>
+        <button id="hide">—</button>
+      </div>
+    </div>
+
+    <div class="question">Waiting for interview...</div>
+
+    <div class="answer-container">
+      <div class="answer"></div>
+    </div>
+    <script src="../node_modules/@microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script src="../node_modules/marked/lib/marked.umd.js"></script>
+    <script src="overlay.js"></script>
+  </body>
+</html>
