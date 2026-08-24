@@ -1,3 +1,5 @@
+const profileEl = document.querySelector(".profile");
+const statusText = document.querySelector(".status-text");
 const status = document.querySelector(".status");
 const question = document.querySelector(".question");
 const answer = document.querySelector(".answer");
@@ -6,6 +8,28 @@ const connection = new signalR.HubConnectionBuilder()
   .withUrl("http://localhost:5153/interviewHub")
   .withAutomaticReconnect()
   .build();
+
+async function loadResumeStatus() {
+  try {
+    const res = await fetch("http://localhost:5153/api/resume/status");
+    const data = await res.json();
+
+    if (!data.loaded) {
+      statusText.textContent = "No Resume";
+      profileEl.innerHTML = "Upload Resume";
+      return;
+    }
+
+    statusText.textContent = "Resume Loaded";
+
+    profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
+  } catch {
+    statusText.textContent = "Offline";
+    profileEl.innerHTML = "Backend unavailable";
+  }
+}
+
+loadResumeStatus();
 
 function resizeOverlay() {
   const card = document.querySelector(".card");
@@ -27,6 +51,12 @@ window.electron.onCollapse((collapsed) => {
 
 connection.on("ReceiveStatus", (s) => {
   status.textContent = "🎙 " + s;
+});
+
+connection.on("ResumeUpdated", (data) => {
+  statusText.textContent = "Resume Loaded";
+
+  profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
 });
 
 connection.on("ReceiveTranscript", (q) => {

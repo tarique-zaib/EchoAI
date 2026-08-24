@@ -2,6 +2,8 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using backend.Models;
 using backend.Services;
+using Microsoft.AspNetCore.SignalR;
+using backend.Hubs;
 
 namespace backend.Controllers;
 
@@ -11,13 +13,16 @@ public class ResumeController : ControllerBase
 {
     private readonly ResumeParserService _parser;
     private readonly ResumeMemoryService _memory;
+    private readonly IHubContext<InterviewHub> _hub;
 
     public ResumeController(
-        ResumeParserService parser,
-        ResumeMemoryService memory)
+    ResumeParserService parser,
+    ResumeMemoryService memory,
+    IHubContext<InterviewHub> hub)
     {
         _parser = parser;
         _memory = memory;
+        _hub = hub;
     }
 
     [HttpPost("upload")]
@@ -46,6 +51,11 @@ public class ResumeController : ControllerBase
             ResumeProfile profile = _parser.Parse(path);
 
             _memory.Save(profile);
+            await _hub.Clients.All.SendAsync("ResumeUpdated", new
+            {
+                name = profile.Name,
+                years = profile.ExperienceYears
+            });
 
             var json = Path.ChangeExtension(path, ".json");
 
@@ -93,6 +103,28 @@ public class ResumeController : ControllerBase
         return Ok(new
         {
             success = true
+        });
+    }
+
+    [HttpGet("status")]
+    public IActionResult Status()
+    {
+        var profile = _memory.Get();
+
+        if (profile == null)
+        {
+            return Ok(new
+            {
+                loaded = false
+            });
+        }
+
+        return Ok(new
+        {
+            loaded = true,
+            name = profile.Name,
+            years = profile.ExperienceYears,
+            headline = profile.Headline
         });
     }
 }

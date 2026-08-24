@@ -164,7 +164,7 @@ public class PythonWorkerService
                 continue;
             }
 
-            if (line.StartsWith("Using Windows output"))
+            if (line.StartsWith("Using "))
                 continue;
 
             // Prevent EchoPrep from reacting to its own answer
