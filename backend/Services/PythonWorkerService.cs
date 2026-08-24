@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using Microsoft.AspNetCore.SignalR;
 using backend.Hubs;
 
@@ -16,6 +17,7 @@ public class PythonWorkerService
 
     private string _currentQuestion = "";
     private CancellationTokenSource? _debounceCts;
+    private string _lastAiAnswer = "";
 
     public PythonWorkerService(
         IHubContext<InterviewHub> hub,
@@ -23,6 +25,64 @@ public class PythonWorkerService
     {
         _hub = hub;
         _ai = ai;
+    }
+
+    // --------------------------------------------
+    // NEW: Better interview question detection
+    // --------------------------------------------
+    private static bool IsLikelyInterviewQuestion(string text)
+    {
+        text = text.Trim();
+
+        if (text.Length < 8)
+            return false;
+
+        string lower = text.ToLowerInvariant();
+
+        // Common candidate filler phrases
+        string[] reject =
+        {
+            "i think",
+            "let me",
+            "yeah",
+            "okay",
+            "ok",
+            "right",
+            "basically",
+            "actually",
+            "we can",
+            "we will",
+            "i have",
+            "it will",
+            "not ok"
+        };
+
+        if (reject.Any(lower.StartsWith))
+            return false;
+
+        // Strong interview question signals
+        if (text.EndsWith("?"))
+            return true;
+
+        string[] starters =
+        {
+            "what",
+            "how",
+            "why",
+            "when",
+            "where",
+            "which",
+            "who",
+            "tell me",
+            "explain",
+            "describe",
+            "compare",
+            "walk me through",
+            "can you",
+            "could you"
+        };
+
+        return starters.Any(lower.StartsWith);
     }
 
     public void Start()
@@ -55,6 +115,12 @@ public class PythonWorkerService
         if (!File.Exists(script))
             throw new FileNotFoundException($"Script not found: {script}");
 
+        foreach (var p in Process.GetProcessesByName("python"))
+        {
+            try { p.Kill(true); }
+            catch { }
+        }
+
         _python = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -68,15 +134,6 @@ public class PythonWorkerService
                 CreateNoWindow = true
             }
         };
-
-        foreach (var p in Process.GetProcessesByName("python"))
-        {
-            try
-            {
-                p.Kill(true);
-            }
-            catch { }
-        }
 
         _python.Start();
 
@@ -103,7 +160,6 @@ public class PythonWorkerService
 
             Console.WriteLine($"PYTHON: {line}");
 
-            // Worker status messages
             if (line.StartsWith("Loading model"))
             {
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Loading model...");
@@ -116,16 +172,36 @@ public class PythonWorkerService
                 continue;
             }
 
-            // Send transcript immediately
+            if (line.StartsWith("Using Windows output"))
+                continue;
+
+            // Prevent EchoPrep from reacting to its own answer
+            if (!string.IsNullOrWhiteSpace(_lastAiAnswer))
+            {
+                var transcript = line.Trim().ToLowerInvariant();
+                var answer = _lastAiAnswer.ToLowerInvariant();
+
+                if (transcript.Length > 12 &&
+                    (answer.Contains(transcript) ||
+                     transcript.Contains(answer[..Math.Min(40, answer.Length)])))
+                {
+                    Console.WriteLine($"Ignored repeated speech: {line}");
+                    continue;
+                }
+            }
+
+            // Always show transcript in UI
             await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
 
-            // Keep latest transcript
+            // NEW: Only interviewer-like questions trigger AI
+            if (!IsLikelyInterviewQuestion(line))
+                continue;
+
             lock (_bufferLock)
             {
                 _currentQuestion = line;
             }
 
-            // Restart debounce timer
             _debounceCts?.Cancel();
             _debounceCts = new CancellationTokenSource();
 
@@ -137,7 +213,6 @@ public class PythonWorkerService
     {
         try
         {
-            // Wait until user finishes speaking
             await Task.Delay(1200, token);
 
             string question;
@@ -150,23 +225,6 @@ public class PythonWorkerService
             if (question.Length < 5)
                 return;
 
-            // Only generate an answer for actual interview questions.
-            var words = question.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            if (!question.Contains("?") &&
-                !question.StartsWith("What", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("How", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("Why", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("When", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("Where", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("Explain", StringComparison.OrdinalIgnoreCase) &&
-                !question.StartsWith("Difference", StringComparison.OrdinalIgnoreCase) &&
-                words.Length < 4)
-            {
-                return;
-            }
-
-            // Ignore duplicate generation
             if (!await _aiLock.WaitAsync(0, token))
                 return;
 
@@ -178,10 +236,15 @@ public class PythonWorkerService
                 await _hub.Clients.All.SendAsync("AnswerStarted");
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
 
-                await foreach (var chunk in _ai.GenerateAnswerStream(question))
+                var builder = new StringBuilder();
+
+                await foreach (var chunk in _ai.GenerateAnswerStream(question, token))
                 {
+                    builder.Append(chunk);
                     await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
                 }
+
+                _lastAiAnswer = builder.ToString();
 
                 Console.WriteLine("AI answer completed.");
 
@@ -195,7 +258,6 @@ public class PythonWorkerService
         }
         catch (TaskCanceledException)
         {
-            // User kept talking
         }
         catch (Exception ex)
         {
@@ -235,7 +297,6 @@ public class PythonWorkerService
         }
         catch
         {
-            // Ignore cleanup errors
         }
 
         _python.Dispose();

@@ -44,4 +44,16 @@ app.MapControllers();
 
 app.MapHub<InterviewHub>("/interviewHub");
 
+// ------------------------------
+// Start Python Whisper Worker
+// ------------------------------
+var pythonWorker = app.Services.GetRequiredService<PythonWorkerService>();
+pythonWorker.Start();
+
+// Stop Python when backend exits
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    pythonWorker.Stop();
+});
+
 app.Run();
