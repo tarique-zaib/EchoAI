@@ -11,9 +11,13 @@ public class PythonWorkerService
     private readonly AIAnswerService _ai;
 
     private Process? _python;
+    private volatile bool _suppressCandidateSpeech = false;
 
     private readonly SemaphoreSlim _aiLock = new(1, 1);
     private readonly object _bufferLock = new();
+    private readonly Queue<string> _sessionQuestions = new();
+    private readonly Queue<string> _sessionAnswers = new();
+    private const int MaxHistory = 3;
 
     private string _currentQuestion = "";
     private CancellationTokenSource? _debounceCts;
@@ -32,9 +36,6 @@ public class PythonWorkerService
     // --------------------------------------------
     private static bool IsLikelyInterviewQuestion(string text)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return false;
-
         text = text.Trim();
 
         if (text.Length < 8)
@@ -42,71 +43,31 @@ public class PythonWorkerService
 
         var lower = text.ToLowerInvariant();
 
-        // Remove Whisper filler prefixes
-        string[] prefixes =
-        {
-        "the ",
-        "so ",
-        "okay ",
-        "ok ",
-        "well ",
-        "now ",
-        "let's ",
-        "lets "
-    };
-
-        foreach (var prefix in prefixes)
-        {
-            if (lower.StartsWith(prefix))
-            {
-                lower = lower[prefix.Length..];
-                break;
-            }
-        }
-
-        // Candidate filler phrases (don't trigger AI)
-        string[] reject =
-        {
-        "i think",
-        "let me",
-        "yeah",
-        "right",
-        "basically",
-        "actually",
-        "we can",
-        "we will",
-        "i have",
-        "it will",
-        "not ok"
-    };
-
-        if (reject.Any(lower.StartsWith))
-            return false;
-
-        // Strong interview question signals
-        if (lower.EndsWith("?"))
-            return true;
-
         string[] starters =
         {
-        "what",
-        "how",
-        "why",
-        "when",
-        "where",
-        "which",
-        "who",
-        "tell me",
-        "explain",
-        "describe",
-        "compare",
-        "difference",
-        "walk me through",
-        "can you",
-        "could you"
+        "what","how","why","when","where","which","who",
+        "tell me","explain","describe","compare",
+        "walk me through","can you","could you",
+        "have you","give me","do you"
     };
 
-        return starters.Any(lower.StartsWith);
+        if (starters.Any(lower.StartsWith))
+            return true;
+
+        if (text.EndsWith("?"))
+            return true;
+
+        if (lower.Contains("difference between"))
+            return true;
+
+        if (lower.Contains("experience with"))
+            return true;
+
+        if (lower.Contains("worked on"))
+            return true;
+
+        // Natural spoken interview question
+        return text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 6;
     }
 
     public void Start()
@@ -176,6 +137,21 @@ public class PythonWorkerService
 
             Console.WriteLine($"PYTHON: {line}");
 
+            // Ignore candidate speech while AI is answering.
+            // If a brand-new interviewer question starts, stop suppressing immediately.
+            if (_suppressCandidateSpeech)
+            {
+                if (IsLikelyInterviewQuestion(line))
+                {
+                    _suppressCandidateSpeech = false;
+                }
+                else
+                {
+                    Console.WriteLine($"Suppressed candidate speech: {line}");
+                    continue;
+                }
+            }
+
             if (line.StartsWith("Loading model"))
             {
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Loading model...");
@@ -206,7 +182,10 @@ public class PythonWorkerService
                 }
             }
 
-            if (line.Equals(_currentQuestion, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(
+        line.Trim(),
+        _currentQuestion.Trim(),
+        StringComparison.OrdinalIgnoreCase))
                 continue;
 
             // Always show transcript in UI
@@ -229,6 +208,31 @@ public class PythonWorkerService
 
             _ = ProcessFinalQuestion(_debounceCts.Token);
         }
+    }
+
+    private string BuildContextQuestion(string currentQuestion)
+    {
+        if (_sessionQuestions.Count == 0)
+            return currentQuestion;
+
+        var sb = new StringBuilder();
+
+        sb.AppendLine("Current interview context:");
+        sb.AppendLine();
+
+        var questions = _sessionQuestions.ToArray();
+        var answers = _sessionAnswers.ToArray();
+
+        for (int i = 0; i < questions.Length; i++)
+        {
+            sb.AppendLine($"Previous Question: {questions[i]}");
+            sb.AppendLine($"Previous Answer: {answers[i][..Math.Min(120, answers[i].Length)]}...");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"Current Question: {currentQuestion}");
+
+        return sb.ToString();
     }
 
     private async Task ProcessFinalQuestion(CancellationToken token)
@@ -255,12 +259,15 @@ public class PythonWorkerService
                 Console.WriteLine("Generating AI answer...");
 
                 await _hub.Clients.All.SendAsync("ClearAnswer");
+                _suppressCandidateSpeech = true;
                 await _hub.Clients.All.SendAsync("AnswerStarted");
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
 
                 var builder = new StringBuilder();
 
-                await foreach (var chunk in _ai.GenerateAnswerStream(question, token))
+                await foreach (var chunk in _ai.GenerateAnswerStream(
+    BuildContextQuestion(question),
+    token))
                 {
                     builder.Append(chunk);
                     await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
@@ -271,6 +278,18 @@ public class PythonWorkerService
                 Console.WriteLine("AI answer completed.");
 
                 await _hub.Clients.All.SendAsync("AnswerCompleted");
+                _suppressCandidateSpeech = false;
+
+                var finalAnswer = builder.ToString();
+
+                _sessionQuestions.Enqueue(question);
+                _sessionAnswers.Enqueue(finalAnswer);
+
+                while (_sessionQuestions.Count > MaxHistory)
+                    _sessionQuestions.Dequeue();
+
+                while (_sessionAnswers.Count > MaxHistory)
+                    _sessionAnswers.Dequeue();
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Listening");
             }
             finally
@@ -280,9 +299,11 @@ public class PythonWorkerService
         }
         catch (TaskCanceledException)
         {
+            _suppressCandidateSpeech = false;
         }
         catch (Exception ex)
         {
+            _suppressCandidateSpeech = false;
             Console.WriteLine($"AI ERROR: {ex.Message}");
         }
     }
