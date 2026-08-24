@@ -31,7 +31,7 @@ body {
   font-size: 22px;
   font-weight: 700;
   margin-bottom: 18px;
-  color:white;
+  color: white;
 }
 
 .answer-container {
@@ -41,7 +41,7 @@ body {
 }
 
 .answer {
-  color:rgba(255,255,255,.92);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 15px;
   line-height: 1.8;
 }
@@ -115,44 +115,53 @@ body {
 .controls button:hover {
   background: rgba(255, 255, 255, 0.08);
 }
-.controls{
-    display:flex;
-    gap:6px;
+.controls {
+  display: flex;
+  gap: 6px;
 }
+/* ===== Mini Mode ===== */
+
+.mini-mode .profile,
 .mini-mode .question,
 .mini-mode .answer-container,
-.mini-mode .controls{
-    display:none;
+.mini-mode .controls {
+  display: none;
 }
 
-.mini-mode .card{
-    width:70px;
-    height:70px;
-    padding:0;
-    border-radius:50%;
+.mini-mode .card {
+  width: 70px;
+  height: 70px;
+  padding: 0;
+  border-radius: 50%;
 
-    display:flex;
-    justify-content:center;
-    align-items:center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.mini-mode .status{
-    margin:0;
-    font-size:0;
+.mini-mode .status {
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.mini-mode .dot{
-    width:18px;
-    height:18px;
-    box-shadow:0 0 22px #48f2a0;
-}
-.profile{
-    margin-bottom:16px;
-    color:#d7d7d7;
-    line-height:1.4;
+.mini-mode .status-text {
+  display: none;
 }
 
-.profile strong{
-    color:white;
-    font-size:18px;
+.mini-mode .dot {
+  width: 18px;
+  height: 18px;
+  box-shadow: 0 0 22px #48f2a0;
+}
+.profile {
+  margin-bottom: 16px;
+  color: #d7d7d7;
+  line-height: 1.4;
+}
+
+.profile strong {
+  color: white;
+  font-size: 18px;
 }

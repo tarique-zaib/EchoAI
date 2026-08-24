@@ -15,16 +15,16 @@ async function loadResumeStatus() {
     const data = await res.json();
 
     if (!data.loaded) {
-      statusText.textContent = "No Resume";
-      profileEl.innerHTML = "Upload Resume";
+      profileEl.innerHTML = "No Resume Loaded";
       return;
     }
 
-    statusText.textContent = "Resume Loaded";
-
-    profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
+    profileEl.innerHTML = `
+      <strong>${data.name}</strong><br>
+      ${data.headline.split(" with ")[0]}<br>
+      ${data.years}+ Years • Resume Active
+    `;
   } catch {
-    statusText.textContent = "Offline";
     profileEl.innerHTML = "Backend unavailable";
   }
 }
@@ -50,23 +50,20 @@ window.electron.onCollapse((collapsed) => {
 });
 
 connection.on("ReceiveStatus", (s) => {
-  status.textContent = "🎙 " + s;
+  status.textContent = s;
 });
 
 connection.on("ResumeUpdated", (data) => {
-  statusText.textContent = "Resume Loaded";
-
-  profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
+  profileEl.innerHTML = `
+    <strong>${data.name}</strong><br>
+    ${data.headline.split(" with ")[0]}<br>
+    ${data.years}+ Years • Resume Active
+  `;
 });
 
 connection.on("ReceiveTranscript", (q) => {
   q = q.replace(/^Explained\b/i, "Explain");
   question.textContent = q;
-  resizeOverlay();
-});
-
-connection.on("ClearAnswer", () => {
-  answer.textContent = "";
   resizeOverlay();
 });
 
