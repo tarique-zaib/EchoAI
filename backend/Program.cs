@@ -10,6 +10,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<PythonWorkerService>();
 builder.Services.AddControllers();
 builder.Services.AddSingleton<AIAnswerService>();
+builder.Services.AddSingleton<ResumeParserService>();
+builder.Services.AddSingleton<ResumeMemoryService>();
 
 builder.Services.AddCors(options =>
 {

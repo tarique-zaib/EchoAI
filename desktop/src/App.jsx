@@ -5,7 +5,7 @@ import Orb from "./components/Orb";
 import Transcript from "./components/Transcript";
 import AIPanel from "./components/AIPanel";
 import useMicrophone from "./components/useMicrophone";
-
+import ResumeUpload from "./components/ResumeUpload";
 import connection from "./services/signalr";
 import ConfidenceMeter from "./components/ConfidenceMeter";
 import SessionStats from "./components/SessionStats";
@@ -130,7 +130,7 @@ export default function App() {
       </header>
 
       <Orb status={status} pulseKey={pulseKey} />
-
+      <ResumeUpload />
       <Transcript transcript={transcript} />
 
       <AIPanel answer={answer} status={status} />
