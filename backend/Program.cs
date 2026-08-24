@@ -3,6 +3,11 @@ using backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddHttpClient<AIAnswerService>(client =>
+{
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+
 // Services
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
@@ -12,6 +17,7 @@ builder.Services.AddControllers();
 builder.Services.AddSingleton<AIAnswerService>();
 builder.Services.AddSingleton<ResumeParserService>();
 builder.Services.AddSingleton<ResumeMemoryService>();
+builder.Services.AddSingleton<PromptBuilderService>();
 
 builder.Services.AddCors(options =>
 {

@@ -115,7 +115,14 @@ export default function App() {
   };
 
   if (!started) {
-    return <InterviewLauncher onStart={() => setStarted(true)} />;
+    return (
+      <InterviewLauncher
+        onStart={async () => {
+          setStarted(true);
+          await startInterview();
+        }}
+      />
+    );
   }
 
   return (
@@ -128,6 +135,17 @@ export default function App() {
 
         <div className="live">Live</div>
       </header>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          justifyContent: "center",
+          marginBottom: "20px",
+        }}
+      >
+        <button onClick={startInterview}>Start Interview</button>
+        <button onClick={stopInterview}>Stop Interview</button>
+      </div>
 
       <Orb status={status} pulseKey={pulseKey} />
       <ResumeUpload />

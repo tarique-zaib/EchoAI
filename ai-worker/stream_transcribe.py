@@ -220,7 +220,7 @@ threading.Thread(target=worker, daemon=True).start()
 # Windows System Audio Capture (WASAPI Loopback)
 # ---------------------------------------------
 
-USE_SYSTEM_AUDIO = True
+USE_SYSTEM_AUDIO = False
 
 if USE_SYSTEM_AUDIO:
     speaker = sc.default_speaker()

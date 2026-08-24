@@ -32,66 +32,87 @@ public class PythonWorkerService
     // --------------------------------------------
     private static bool IsLikelyInterviewQuestion(string text)
     {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
         text = text.Trim();
 
         if (text.Length < 8)
             return false;
 
-        string lower = text.ToLowerInvariant();
+        var lower = text.ToLowerInvariant();
 
-        // Common candidate filler phrases
+        // Remove Whisper filler prefixes
+        string[] prefixes =
+        {
+        "the ",
+        "so ",
+        "okay ",
+        "ok ",
+        "well ",
+        "now ",
+        "let's ",
+        "lets "
+    };
+
+        foreach (var prefix in prefixes)
+        {
+            if (lower.StartsWith(prefix))
+            {
+                lower = lower[prefix.Length..];
+                break;
+            }
+        }
+
+        // Candidate filler phrases (don't trigger AI)
         string[] reject =
         {
-            "i think",
-            "let me",
-            "yeah",
-            "okay",
-            "ok",
-            "right",
-            "basically",
-            "actually",
-            "we can",
-            "we will",
-            "i have",
-            "it will",
-            "not ok"
-        };
+        "i think",
+        "let me",
+        "yeah",
+        "right",
+        "basically",
+        "actually",
+        "we can",
+        "we will",
+        "i have",
+        "it will",
+        "not ok"
+    };
 
         if (reject.Any(lower.StartsWith))
             return false;
 
         // Strong interview question signals
-        if (text.EndsWith("?"))
+        if (lower.EndsWith("?"))
             return true;
 
         string[] starters =
         {
-            "what",
-            "how",
-            "why",
-            "when",
-            "where",
-            "which",
-            "who",
-            "tell me",
-            "explain",
-            "describe",
-            "compare",
-            "walk me through",
-            "can you",
-            "could you"
-        };
+        "what",
+        "how",
+        "why",
+        "when",
+        "where",
+        "which",
+        "who",
+        "tell me",
+        "explain",
+        "describe",
+        "compare",
+        "difference",
+        "walk me through",
+        "can you",
+        "could you"
+    };
 
         return starters.Any(lower.StartsWith);
     }
 
     public void Start()
     {
-        if (_python is { HasExited: false })
-        {
-            Console.WriteLine("Python already running.");
-            return;
-        }
+        // Always start with a clean worker
+        Stop();
 
         var backendPath = Directory.GetCurrentDirectory();
         var projectRoot = Directory.GetParent(backendPath)!.FullName;
@@ -115,12 +136,6 @@ public class PythonWorkerService
         if (!File.Exists(script))
             throw new FileNotFoundException($"Script not found: {script}");
 
-        foreach (var p in Process.GetProcessesByName("python"))
-        {
-            try { p.Kill(true); }
-            catch { }
-        }
-
         _python = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -132,7 +147,8 @@ public class PythonWorkerService
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
-            }
+            },
+            EnableRaisingEvents = true
         };
 
         _python.Start();
@@ -190,11 +206,17 @@ public class PythonWorkerService
                 }
             }
 
+            if (line.Equals(_currentQuestion, StringComparison.OrdinalIgnoreCase))
+                continue;
+
             // Always show transcript in UI
             await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
 
             // NEW: Only interviewer-like questions trigger AI
-            if (!IsLikelyInterviewQuestion(line))
+            var isQuestion = IsLikelyInterviewQuestion(line);
+            Console.WriteLine($"QUESTION DETECTOR: {isQuestion} | {line}");
+
+            if (!isQuestion)
                 continue;
 
             lock (_bufferLock)
@@ -213,7 +235,7 @@ public class PythonWorkerService
     {
         try
         {
-            await Task.Delay(1200, token);
+            await Task.Delay(600, token);
 
             string question;
 

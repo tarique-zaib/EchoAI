@@ -9,7 +9,9 @@ export default function InterviewLauncher({ onStart }) {
   });
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/meeting/detect")
+    const API = import.meta.env.VITE_API_URL || "http://localhost:5153";
+
+    fetch(`${API}/api/meeting/detect`)
       .then(r => r.json())
       .then(data => setMeeting({ ...data, checking: false }))
       .catch(() =>

@@ -238,52 +238,91 @@ public class ResumeParserService
     // EXPERIENCE (Generic)
     // =====================================================
 
+    // =====================================================
+    // EXPERIENCE (Semantic)
+    // =====================================================
+
     private static List<ExperienceItem> ExtractExperienceItems(string text)
     {
         var jobs = new List<ExperienceItem>();
 
         var lines = text.Split('\n')
-            .Select(l => Regex.Replace(l.Trim(), @"^-?\d+", "")) // remove page artifacts
-            .Select(l => Regex.Replace(l, @"^\d+", ""))          // remove numeric prefixes
+            .Select(l => Regex.Replace(l.Trim(), @"^-?\d+\s*:?\s*", ""))
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .ToList();
 
         var dateRegex = new Regex(
-            @"^(.*)\|\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec).*(Present|Current|20\d{2})$",
+            @"^(.*?)\|\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec).*(Present|Current|20\d{2})$",
             RegexOptions.IgnoreCase);
+
+        ExperienceItem? current = null;
 
         for (int i = 0; i < lines.Count; i++)
         {
-            if (!dateRegex.IsMatch(lines[i]))
+            var line = lines[i];
+
+            if (SectionNames.Any(s =>
+                s.Equals(line, StringComparison.OrdinalIgnoreCase)))
                 continue;
 
-            if (i == 0)
-                continue;
-
-            var title = lines[i - 1].Trim();
-            var location = lines[i].Split('|')[0].Trim();
-            var duration = lines[i].Split('|')[1].Trim();
-
-            // Skip non-job lines
-            if (title.StartsWith("Project:", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (title.StartsWith("Technologies:", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            if (title.Contains("PROFESSIONAL EXPERIENCE", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            jobs.Add(new ExperienceItem
+            if (dateRegex.IsMatch(line))
             {
-                Title = title,
-                Company = location,
-                Duration = duration
-            });
+                if (current != null)
+                {
+                    current.Description = current.Description.Trim();
+                    jobs.Add(current);
+                }
+
+                var locationAndDate = line.Split('|', 2);
+
+                var previous = i > 0 ? lines[i - 1] : "";
+
+                string role = previous;
+                string company = "";
+
+                var dash = previous.IndexOf(" – ");
+
+                if (dash > 0)
+                {
+                    role = previous[..dash].Trim();
+                    company = previous[(dash + 3)..].Trim();
+                }
+
+                current = new ExperienceItem
+                {
+                    Title = role,
+                    Company = company,
+                    Duration = locationAndDate.Length > 1
+                        ? locationAndDate[1].Trim()
+                        : "",
+                    Description = $"Location: {locationAndDate[0].Trim()}{Environment.NewLine}"
+                };
+
+                continue;
+            }
+
+            if (current == null)
+                continue;
+
+            if (line.StartsWith("Project:", StringComparison.OrdinalIgnoreCase))
+            {
+                current.Projects.Add(
+                    line["Project:".Length..].Trim());
+
+                current.Description += line + Environment.NewLine;
+                continue;
+            }
+            current.Description += line + Environment.NewLine;
+        }
+
+        if (current != null)
+        {
+            current.Description = current.Description.Trim();
+            jobs.Add(current);
         }
 
         return jobs
-            .GroupBy(x => $"{x.Title}|{x.Company}")
+            .GroupBy(j => $"{j.Title}|{j.Company}|{j.Duration}")
             .Select(g => g.First())
             .ToList();
     }
