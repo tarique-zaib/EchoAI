@@ -119,3 +119,30 @@ body {
     display:flex;
     gap:6px;
 }
+.mini-mode .question,
+.mini-mode .answer-container,
+.mini-mode .controls{
+    display:none;
+}
+
+.mini-mode .card{
+    width:70px;
+    height:70px;
+    padding:0;
+    border-radius:50%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.mini-mode .status{
+    margin:0;
+    font-size:0;
+}
+
+.mini-mode .dot{
+    width:18px;
+    height:18px;
+    box-shadow:0 0 22px #48f2a0;
+}

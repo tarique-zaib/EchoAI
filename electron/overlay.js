@@ -7,10 +7,22 @@ const connection = new signalR.HubConnectionBuilder()
   .withAutomaticReconnect()
   .build();
 
+function resizeOverlay() {
+  const card = document.querySelector(".card");
+
+  const height = Math.min(Math.max(card.scrollHeight + 40, 170), 420);
+
+  window.electron.resizeWindow(560, height);
+}
+
 window.electron.onGhostMode((enabled) => {
   document.querySelector(".status-text").textContent = enabled
     ? "Ghost Mode"
     : "Listening";
+});
+
+window.electron.onCollapse((collapsed) => {
+  document.body.classList.toggle("mini-mode", collapsed);
 });
 
 connection.on("ReceiveStatus", (s) => {
@@ -20,10 +32,12 @@ connection.on("ReceiveStatus", (s) => {
 connection.on("ReceiveTranscript", (q) => {
   q = q.replace(/^Explained\b/i, "Explain");
   question.textContent = q;
+  resizeOverlay();
 });
 
 connection.on("ClearAnswer", () => {
   answer.textContent = "";
+  resizeOverlay();
 });
 
 const answerEl = document.querySelector(".answer");
@@ -32,13 +46,14 @@ let fullAnswer = "";
 connection.on("ClearAnswer", () => {
   fullAnswer = "";
   answerEl.innerHTML = "";
+  resizeOverlay();
 });
 
 connection.on("ReceiveAnswerChunk", (chunk) => {
   fullAnswer += chunk;
   answerEl.innerHTML = marked.parse(fullAnswer);
-
   answerEl.scrollTop = answerEl.scrollHeight;
+  resizeOverlay();
 });
 
 connection
