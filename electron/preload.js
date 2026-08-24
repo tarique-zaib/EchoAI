@@ -1,10 +1,14 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electron", {
-  onGhostMode: cb =>
-    ipcRenderer.on("ghost-mode", (_, enabled) => cb(enabled)),
-  resizeWindow: (w, h) =>
-    ipcRenderer.send("resize-window", { w, h }),
-  onCollapse: cb =>
-    ipcRenderer.on("collapse", (_, value) => cb(value))
+  resizeWindow: (w, h) => ipcRenderer.send("resize-window", { w, h }),
+
+  onGhostMode: (callback) =>
+    ipcRenderer.on("ghost-mode", (_, enabled) => callback(enabled)),
+
+  onCollapse: (callback) =>
+    ipcRenderer.on("collapse", (_, collapsed) => callback(collapsed)),
+
+  onShareSafe: (callback) =>
+    ipcRenderer.on("share-safe", (_, enabled) => callback(enabled)),
 });

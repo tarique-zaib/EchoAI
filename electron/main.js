@@ -56,6 +56,24 @@ function createOverlay() {
     }
   });
 
+  // ===== Share Safe Mode =====
+
+  let shareSafe = false;
+
+  globalShortcut.register("CommandOrControl+Shift+S", () => {
+    if (!overlay || overlay.isDestroyed()) return;
+
+    shareSafe = !shareSafe;
+
+    overlay.setContentProtection(shareSafe);
+
+    overlay.webContents.send("share-safe", shareSafe);
+
+    console.log(
+      shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled"
+    );
+  });
+
   overlay.loadFile(path.join(__dirname, "overlay.html"));
 }
 
