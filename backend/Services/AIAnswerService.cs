@@ -10,6 +10,8 @@ public class AIAnswerService
     private readonly HttpClient _http;
     private readonly ResumeMemoryService _memory;
     private readonly PromptBuilderService _promptBuilder;
+    private CancellationTokenSource? _currentGenerationCts;
+    private readonly object _generationLock = new();
 
     public AIAnswerService(
         IHttpClientFactory factory,
@@ -27,6 +29,19 @@ public class AIAnswerService
         string question,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        CancellationToken token;
+
+        lock (_generationLock)
+        {
+            _currentGenerationCts?.Cancel();
+            _currentGenerationCts?.Dispose();
+
+            _currentGenerationCts =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            token = _currentGenerationCts.Token;
+        }
+
         ResumeProfile? profile = _memory.Get();
 
         // Build prompt from resume
@@ -95,16 +110,28 @@ Required output:
         using var response = await _http.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
-            cancellationToken);
+            token);
 
         response.EnsureSuccessStatusCode();
 
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var stream = await response.Content.ReadAsStreamAsync(token);
         using var reader = new StreamReader(stream);
 
         while (true)
         {
+            if (token.IsCancellationRequested)
+            {
+                Console.WriteLine("Previous AI answer interrupted.");
+                yield break;
+            }
+
             var line = await reader.ReadLineAsync();
+
+            if (token.IsCancellationRequested)
+            {
+                Console.WriteLine("Previous AI answer interrupted.");
+                yield break;
+            }
 
             if (line is null)
                 yield break;

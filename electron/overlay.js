@@ -227,6 +227,11 @@ connection.on("ReceiveTranscript", (q) => {
 
   question.textContent = q;
 
+  fullAnswer = "";
+  answerEl.innerHTML = "";
+
+  thinkingIndicator.classList.remove("hidden");
+
   resizeOverlay();
 });
 
