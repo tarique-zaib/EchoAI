@@ -11,6 +11,47 @@ const connection = new signalR.HubConnectionBuilder()
 
 let fullAnswer = "";
 
+const captureBtn = document.getElementById("capture");
+const capturePreview = document.getElementById("capturePreview");
+const captureImage = document.getElementById("captureImage");
+const retakeCapture = document.getElementById("retakeCapture");
+const explainCapture = document.getElementById("explainCapture");
+
+async function startCapture() {
+  showToast("Select area to capture");
+
+  try {
+    const file = await window.electron.captureScreen();
+
+    if (!file) {
+      showToast("Capture cancelled");
+      return;
+    }
+
+    captureBtn.classList.add("active");
+
+    captureImage.onload = () => {
+      resizeOverlay();     // Resize AFTER image is rendered
+    };
+
+    captureImage.src = `${file}?t=${Date.now()}`;
+
+    capturePreview.classList.remove("hidden");
+
+    showToast("📷 Screenshot Captured");
+  } catch {
+    showToast("Capture failed");
+  }
+}
+
+captureBtn?.addEventListener("click", startCapture);
+
+retakeCapture?.addEventListener("click", startCapture);
+
+explainCapture?.addEventListener("click", () => {
+  showToast("Vision analysis coming next");
+});
+
 // ---------- Resume ----------
 
 async function loadResumeStatus() {
@@ -26,8 +67,7 @@ async function loadResumeStatus() {
 
     statusText.textContent = "Resume Loaded";
 
-    profileEl.innerHTML =
-      `<strong>${data.name}</strong><br>${data.years}+ Years`;
+    profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
   } catch {
     statusText.textContent = "Offline";
     profileEl.innerHTML = "Backend unavailable";
@@ -41,9 +81,9 @@ loadResumeStatus();
 function resizeOverlay() {
   const card = document.querySelector(".card");
 
-  const height = Math.min(Math.max(card.scrollHeight + 40, 170), 420);
+  const height = Math.min(Math.max(card.scrollHeight + 40, 260), 620);
 
-  window.electron.resizeWindow(560, height);
+  window.electron.resizeWindow(620, height);
 }
 
 // ---------- Toast ----------
@@ -92,8 +132,7 @@ connection.on("ReceiveStatus", (s) => {
 connection.on("ResumeUpdated", (data) => {
   statusText.textContent = "Resume Loaded";
 
-  profileEl.innerHTML =
-    `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
+  profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
 });
 
 connection.on("ReceiveTranscript", (q) => {

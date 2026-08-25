@@ -1,5 +1,6 @@
 const { app, BrowserWindow, globalShortcut, ipcMain } = require("electron");
 const path = require("path");
+const { captureRegion } = require("./capture");
 
 let overlay;
 
@@ -9,6 +10,23 @@ const MINI_SIZE = { width: 90, height: 90 };
 ipcMain.on("resize-window", (_, { w, h }) => {
   if (overlay && !overlay.isDestroyed()) {
     overlay.setSize(w, h, true);
+  }
+});
+
+ipcMain.handle("capture-screen", async () => {
+  if (!overlay || overlay.isDestroyed()) return null;
+
+  overlay.hide();
+
+  try {
+    const file = await captureRegion();
+
+    overlay.showInactive();
+
+    return file;
+  } catch (err) {
+    overlay.showInactive();
+    throw err;
   }
 });
 
@@ -69,9 +87,7 @@ function createOverlay() {
 
     overlay.webContents.send("share-safe", shareSafe);
 
-    console.log(
-      shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled"
-    );
+    console.log(shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled");
   });
 
   overlay.loadFile(path.join(__dirname, "overlay.html"));
