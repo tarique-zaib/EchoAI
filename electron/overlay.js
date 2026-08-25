@@ -10,6 +10,7 @@ const connection = new signalR.HubConnectionBuilder()
   .build();
 
 let fullAnswer = "";
+let latestCapturePath = null;
 
 const captureBtn = document.getElementById("capture");
 const capturePreview = document.getElementById("capturePreview");
@@ -31,7 +32,7 @@ async function startCapture() {
     captureBtn.classList.add("active");
 
     captureImage.onload = () => {
-      resizeOverlay();     // Resize AFTER image is rendered
+      resizeOverlay(); // Resize AFTER image is rendered
     };
 
     captureImage.src = `${file}?t=${Date.now()}`;
@@ -39,6 +40,7 @@ async function startCapture() {
     capturePreview.classList.remove("hidden");
 
     showToast("📷 Screenshot Captured");
+    latestCapturePath = file;
   } catch {
     showToast("Capture failed");
   }
@@ -48,8 +50,35 @@ captureBtn?.addEventListener("click", startCapture);
 
 retakeCapture?.addEventListener("click", startCapture);
 
-explainCapture?.addEventListener("click", () => {
-  showToast("Vision analysis coming next");
+explainCapture?.addEventListener("click", async () => {
+  if (!latestCapturePath) {
+    showToast("Capture a screenshot first.");
+    return;
+  }
+
+  captureBtn.classList.remove("active");
+  captureBtn.classList.add("processing");
+
+  showToast("Analyzing image...");
+
+  fullAnswer = "";
+  answerEl.innerHTML = "";
+
+  try {
+    await fetch("http://localhost:5153/api/vision/explain", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        imagePath: latestCapturePath,
+      }),
+    });
+  } catch (err) {
+    captureBtn.classList.remove("processing");
+
+    showToast("Vision failed");
+  }
 });
 
 // ---------- Resume ----------
@@ -149,6 +178,13 @@ connection.on("ClearAnswer", () => {
   answerEl.innerHTML = "";
 
   resizeOverlay();
+});
+
+connection.on("VisionCompleted", () => {
+  captureBtn.classList.remove("processing");
+  captureBtn.classList.add("active");
+
+  showToast("Explanation Ready");
 });
 
 connection.on("ReceiveAnswerChunk", (chunk) => {

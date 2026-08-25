@@ -18,6 +18,7 @@ builder.Services.AddSingleton<AIAnswerService>();
 builder.Services.AddSingleton<ResumeParserService>();
 builder.Services.AddSingleton<ResumeMemoryService>();
 builder.Services.AddSingleton<PromptBuilderService>();
+builder.Services.AddSingleton<VisionService>();
 
 builder.Services.AddCors(options =>
 {
