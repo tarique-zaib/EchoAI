@@ -20,6 +20,7 @@ const retakeCapture = document.getElementById("retakeCapture");
 const explainCapture = document.getElementById("explainCapture");
 const headphoneBtn = document.getElementById("headphoneMode");
 const systemBtn = document.getElementById("systemMode");
+const thinkingIndicator = document.getElementById("thinkingIndicator");
 
 async function setAudioMode(mode) {
   const endpoint =
@@ -39,9 +40,7 @@ function updateAudioMode(mode) {
   systemBtn?.classList.toggle("active", mode === "system");
 
   statusText.textContent =
-    mode === "headphone"
-      ? "You Speaking"
-      : "Interview Listening";
+    mode === "headphone" ? "You Speaking" : "Interview Listening";
 }
 
 async function startCapture() {
@@ -233,8 +232,9 @@ connection.on("ReceiveTranscript", (q) => {
 
 connection.on("ClearAnswer", () => {
   fullAnswer = "";
-
   answerEl.innerHTML = "";
+
+  thinkingIndicator.classList.remove("hidden");
 
   resizeOverlay();
 });
@@ -247,6 +247,8 @@ connection.on("VisionCompleted", () => {
 });
 
 connection.on("ReceiveAnswerChunk", (chunk) => {
+  thinkingIndicator.classList.add("hidden");
+
   fullAnswer += chunk;
 
   answerEl.innerHTML = marked.parse(fullAnswer);
