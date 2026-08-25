@@ -3,6 +3,7 @@ const statusText = document.querySelector(".status-text");
 const status = document.querySelector(".status");
 const question = document.querySelector(".question");
 const answerEl = document.querySelector(".answer");
+const API = "http://localhost:5153/api";
 
 const connection = new signalR.HubConnectionBuilder()
   .withUrl("http://localhost:5153/interviewHub")
@@ -17,6 +18,31 @@ const capturePreview = document.getElementById("capturePreview");
 const captureImage = document.getElementById("captureImage");
 const retakeCapture = document.getElementById("retakeCapture");
 const explainCapture = document.getElementById("explainCapture");
+const headphoneBtn = document.getElementById("headphoneMode");
+const systemBtn = document.getElementById("systemMode");
+
+async function setAudioMode(mode) {
+  const endpoint =
+    mode === "system"
+      ? `${API}/audio/mode/system`
+      : `${API}/audio/mode/headphone`;
+
+  const res = await fetch(endpoint, { method: "POST" });
+
+  if (!res.ok) throw new Error("Failed to switch audio mode");
+
+  return res.json();
+}
+
+function updateAudioMode(mode) {
+  headphoneBtn?.classList.toggle("active", mode === "headphone");
+  systemBtn?.classList.toggle("active", mode === "system");
+
+  statusText.textContent =
+    mode === "headphone"
+      ? "You Speaking"
+      : "Interview Listening";
+}
 
 async function startCapture() {
   showToast("Select area to capture");
@@ -105,6 +131,39 @@ async function loadResumeStatus() {
 
 loadResumeStatus();
 
+async function loadAudioMode() {
+  try {
+    const res = await fetch(`${API}/audio/mode`);
+    const data = await res.json();
+
+    updateAudioMode(data.mode);
+  } catch {
+    console.log("Audio mode unavailable");
+  }
+}
+
+loadAudioMode();
+
+headphoneBtn?.addEventListener("click", async () => {
+  try {
+    await setAudioMode("headphone");
+    updateAudioMode("headphone");
+    showToast("🎧 You Mode");
+  } catch {
+    showToast("Failed to switch");
+  }
+});
+
+systemBtn?.addEventListener("click", async () => {
+  try {
+    await setAudioMode("system");
+    updateAudioMode("system");
+    showToast("🖥 System Mode");
+  } catch {
+    showToast("Failed to switch");
+  }
+});
+
 // ---------- Resize ----------
 
 function resizeOverlay() {
@@ -155,7 +214,7 @@ window.electron.onShareSafe((enabled) => {
 // ---------- SignalR ----------
 
 connection.on("ReceiveStatus", (s) => {
-  status.textContent = "🎙 " + s;
+  statusText.textContent = "🎙 " + s;
 });
 
 connection.on("ResumeUpdated", (data) => {

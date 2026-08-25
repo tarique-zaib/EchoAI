@@ -7,9 +7,16 @@ import time
 import soundcard as sc
 import warnings
 from soundcard.mediafoundation import SoundcardRuntimeWarning
-
 from faster_whisper import WhisperModel
 from silero_vad import load_silero_vad, get_speech_timestamps
+
+import argparse
+
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument("--system", action="store_true")
+parser.add_argument("--headphone", action="store_true")
+
+args, _ = parser.parse_known_args()
 
 RATE = 16000
 BLOCK = 4096
@@ -220,7 +227,7 @@ threading.Thread(target=worker, daemon=True).start()
 # Windows System Audio Capture (WASAPI Loopback)
 # ---------------------------------------------
 
-USE_SYSTEM_AUDIO = False
+USE_SYSTEM_AUDIO = args.system
 
 if USE_SYSTEM_AUDIO:
     speaker = sc.default_speaker()

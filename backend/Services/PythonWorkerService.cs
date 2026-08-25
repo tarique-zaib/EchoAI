@@ -120,8 +120,12 @@ public class PythonWorkerService
         return text;
     }
 
-    public void Start()
+    private string _currentMode = "system";
+
+    public void Start(string mode = "system")
     {
+        _currentMode = mode;
+
         // Always start with a clean worker
         Stop();
 
@@ -137,6 +141,7 @@ public class PythonWorkerService
         Console.WriteLine($"WorkerPath  : {workerPath}");
         Console.WriteLine($"PythonExe   : {pythonExe}");
         Console.WriteLine($"Script      : {script}");
+        Console.WriteLine($"Mode        : {mode}");
         Console.WriteLine($"Python Exists : {File.Exists(pythonExe)}");
         Console.WriteLine($"Script Exists : {File.Exists(script)}");
         Console.WriteLine("====================================");
@@ -152,7 +157,7 @@ public class PythonWorkerService
             StartInfo = new ProcessStartInfo
             {
                 FileName = pythonExe,
-                Arguments = $"\"{script}\"",
+                Arguments = $"\"{script}\" --{mode}",
                 WorkingDirectory = workerPath,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -164,10 +169,24 @@ public class PythonWorkerService
 
         _python.Start();
 
-        Console.WriteLine($"Python PID: {_python.Id}");
+        Console.WriteLine($"Python PID: {_python.Id} ({mode})");
 
         _ = Task.Run(ReadPythonOutputAsync);
         _ = Task.Run(ReadPythonErrorAsync);
+    }
+
+    public async Task Restart(string mode)
+    {
+        if (_currentMode == mode)
+            return;
+
+        Console.WriteLine($"Restarting Python in {mode} mode...");
+
+        Stop();
+
+        await Task.Delay(500);
+
+        Start(mode);
     }
 
     private async Task ReadPythonOutputAsync()

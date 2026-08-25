@@ -1,62 +1,64 @@
 <!doctype html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="overlay.css">
-</head>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="overlay.css" />
+  </head>
 
-<body>
-
-  <div class="card">
-
-    <div class="header">
-      <div class="status">
-        <span class="dot"></span>
-        <span class="status-text">Listening</span>
-      </div>
-    </div>
-
-    <div class="profile">Loading profile...</div>
-
-    <div class="question">Waiting for interview...</div>
-
-    <div class="answer-container">
-      <div class="answer"></div>
-    </div>
-
-    <!-- Capture Preview -->
-    <div class="capture-preview hidden" id="capturePreview">
-
-      <div class="capture-header">
-        <span>Latest Capture</span>
-        <span class="capture-badge">Ready</span>
+  <body>
+    <div class="card">
+      <div class="header">
+        <div class="status">
+          <span class="dot"></span>
+          <span class="status-text">Listening</span>
+        </div>
       </div>
 
-      <img id="captureImage" alt="Capture Preview"/>
+      <div class="audio-switch">
+        <button id="headphoneMode" class="audio-pill">🎧 You</button>
 
-      <div class="capture-footer">
+        <button id="systemMode" class="audio-pill active">🖥 System</button>
+      </div>
 
-        <div class="capture-actions">
-          <button id="retakeCapture" class="capture-action-btn">🔄 Retake</button>
-          <button id="explainCapture" class="capture-action-btn primary">✨ Explain</button>
+      <div class="profile">Loading profile...</div>
+
+      <div class="question">Waiting for interview...</div>
+
+      <div class="answer-panel">
+        <div class="answer-container">
+          <div class="answer"></div>
+        </div>
+      </div>
+
+      <!-- Capture Preview -->
+      <div class="capture-preview hidden" id="capturePreview">
+        <div class="capture-header">
+          <span>Latest Capture</span>
+          <span class="capture-badge">Ready</span>
         </div>
 
-        <div class="camera-space"></div>
+        <img id="captureImage" alt="Capture Preview" />
 
+        <div class="capture-footer">
+          <div class="capture-actions">
+            <button id="retakeCapture" class="capture-action-btn">
+              🔄 Retake
+            </button>
+            <button id="explainCapture" class="capture-action-btn primary">
+              ✨ Explain
+            </button>
+          </div>
+
+          <div class="camera-space"></div>
+        </div>
       </div>
-
     </div>
 
-  </div>
+    <!-- Floating Camera -->
+    <button id="capture" class="capture-btn" title="Capture Screen">📷</button>
 
-  <!-- Floating Camera -->
-  <button id="capture" class="capture-btn" title="Capture Screen">
-    📷
-  </button>
-
-  <script src="../node_modules/@microsoft/signalr/dist/browser/signalr.min.js"></script>
-  <script src="../node_modules/marked/lib/marked.umd.js"></script>
-  <script src="overlay.js"></script>
-
-</body>
+    <script src="../node_modules/@microsoft/signalr/dist/browser/signalr.min.js"></script>
+    <script src="../node_modules/marked/lib/marked.umd.js"></script>
+    <script src="overlay.js"></script>
+  </body>
 </html>
