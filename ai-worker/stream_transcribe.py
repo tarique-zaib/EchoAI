@@ -19,7 +19,8 @@ parser.add_argument("--headphone", action="store_true")
 args, _ = parser.parse_known_args()
 
 RATE = 16000
-BLOCK = 4096
+BLOCK = 2048
+CONTEXT_SEC = 1.0     # Keep 1 second before speech
 
 warnings.filterwarnings(
     "ignore",
@@ -32,6 +33,7 @@ last_question = ""
 last_time = 0
 is_processing = False
 processing_lock = threading.Lock()
+pending_audio = None
 
 # ---- New: merge helper state ----
 pending_text = ""
@@ -48,8 +50,8 @@ model = WhisperModel(
 
 vad_model = load_silero_vad()
 
-MIN_SPEECH_MS = 350
-MIN_SILENCE_MS = 250
+MIN_SPEECH_MS = 250
+MIN_SILENCE_MS = 180
 
 print("Listening...", flush=True)
 
@@ -61,25 +63,6 @@ def audio_callback(indata, frames, time_info, status):
 
 
 def clean_text(text):
-    replacements = {
-        r"\byour service bus\b": "Azure Service Bus",
-        r"\bzero service bus\b": "Azure Service Bus",
-        r"\bazure service\b": "Azure Service Bus",
-        r"\bc sharp\b": "C#",
-        r"\bdot net\b": ".NET",
-        r"\bentity framework\b": "Entity Framework",
-    }
-
-    for pattern, value in replacements.items():
-        text = re.sub(pattern, value, text, flags=re.IGNORECASE)
-
-    text = re.sub(
-        r"Azure Service Bus\s+Bus\b",
-        "Azure Service Bus",
-        text,
-        flags=re.IGNORECASE,
-    )
-
     words = text.split()
     cleaned = []
 
@@ -105,9 +88,6 @@ def emit_with_merge(text, now):
                 return
 
         # Flush previous pending sentence
-        if pending_text:
-            print(pending_text, flush=True)
-
         pending_text = text
         pending_time = now
 
@@ -129,29 +109,33 @@ def emit_with_merge(text, now):
 
 
 def transcribe(audio):
-    global last_question, last_time, is_processing
-
+    global last_question, last_time, is_processing, pending_audio
     with processing_lock:
         if is_processing:
+            pending_audio = audio
             return
+        
         is_processing = True
+        
+     # Normalize audio volume
+    peak = np.max(np.abs(audio))
+    if peak > 1e-6:
+        audio = audio / peak * 0.95
 
     try:
         segments, _ = model.transcribe(
             audio,
             language="en",
-            beam_size=1,
-            best_of=1,
+            beam_size=3,
+            best_of=3,
             temperature=0,
+            word_timestamps=True,
             vad_filter=False,
-            condition_on_previous_text=False,
-            initial_prompt=(
-                "Software engineering interview. "
-                "Technical terms: Azure, Azure Service Bus, "
-                ".NET, C#, Entity Framework, React, SQL Server."
-            )
+            condition_on_previous_text=False,            
         )
-
+        
+        segments = list(segments)
+        
         text = clean_text(
             " ".join(s.text.strip() for s in segments).strip()
         )
@@ -172,10 +156,18 @@ def transcribe(audio):
 
         emit_with_merge(text, now)
 
-    finally:
+    finally:        
+        next_audio = None
+
         with processing_lock:
+            if pending_audio is not None:
+                next_audio = pending_audio
+                pending_audio = None
+
             is_processing = False
 
+        if next_audio is not None:
+            transcribe(next_audio)
 
 def worker():
     buffer = np.zeros(0, dtype=np.float32)
@@ -190,6 +182,10 @@ def worker():
 
         buffer = np.concatenate([buffer, chunk])
 
+        # Keep at most 8 seconds in memory
+        if len(buffer) > RATE * 8:
+            buffer = buffer[-RATE * 8:]
+
         if len(buffer) < RATE:
             continue
 
@@ -202,24 +198,32 @@ def worker():
         )
 
         if speech:
-            last_end = speech[-1]["end"]
+            latest = speech[-1]
 
-            if len(buffer) - last_end >= RATE // 8:
-                audio = buffer[:last_end]
+            # Wait until the speaker has been silent for ~200 ms
+            if len(buffer) - latest["end"] < int(RATE * 0.2):
+                continue
 
-                tail = int(RATE * 0.05)
-                buffer = buffer[max(0, last_end - tail):]
+            last_start = latest["start"]
+            last_end = latest["end"]
 
-                threading.Thread(
-                    target=transcribe,
-                    args=(audio,),
-                    daemon=True
-                ).start()
+            context_start = max(0, last_start - int(RATE * CONTEXT_SEC))
+            context_end = min(len(buffer), last_end + int(RATE * 0.2))
+
+            audio = buffer[context_start:context_end]
+
+            buffer = buffer[last_end:]
+
+            threading.Thread(
+                target=transcribe,
+                args=(audio,),
+                daemon=True
+            ).start()
 
         else:
+            # Keep a rolling 2-second history instead of clearing everything
             if len(buffer) > RATE * 2:
-                buffer = np.zeros(0, dtype=np.float32)
-
+                buffer = buffer[-RATE * 2:]
 
 threading.Thread(target=worker, daemon=True).start()
 
