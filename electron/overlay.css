@@ -260,7 +260,13 @@ body {
 .mini-mode .profile,
 .mini-mode .question,
 .mini-mode .answer-container,
+.mini-mode .answer-panel,
+.mini-mode .answer,
+.mini-mode .thinking,
 .mini-mode .capture-preview,
+.mini-mode .capture-btn,
+.mini-mode .audio-switch,
+.mini-mode .answer-modes,
 .mini-mode .capture-btn {
   display: none !important;
 }
@@ -274,6 +280,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
 }
 
 .mini-mode .header {
