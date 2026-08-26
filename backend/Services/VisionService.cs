@@ -19,7 +19,7 @@ public class VisionService
         _hub = hub;
     }
 
-    public async Task ExplainImage(string imagePath)
+    public async Task ExplainImage(string imagePath, string mode = "quick")
     {
         await _hub.Clients.All.SendAsync("ClearAnswer");
 
@@ -35,7 +35,7 @@ public class VisionService
 
         try
         {
-            var text = await GenerateExplanation(imagePath);
+            var text = await GenerateExplanation(imagePath, mode);
 
             foreach (var word in text.Split(' '))
             {
@@ -56,7 +56,7 @@ public class VisionService
         await _hub.Clients.All.SendAsync("VisionCompleted");
     }
 
-    private async Task<string> GenerateExplanation(string imagePath)
+    private async Task<string> GenerateExplanation(string imagePath, string mode)
     {
         var bytes = await File.ReadAllBytesAsync(imagePath);
         var base64 = Convert.ToBase64String(bytes);
@@ -66,18 +66,37 @@ public class VisionService
         var url =
             $"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={apiKey}";
 
+        // Smart Answer Modes
+        var modeInstruction = mode.ToLower() switch
+        {
+            "quick" =>
+                "Give a concise interview-ready explanation in under 30 seconds (2–4 spoken sentences).",
+
+            "detailed" =>
+                "Give a detailed explanation with examples, production use cases, and code when relevant.",
+
+            "interview" =>
+                "Answer exactly as if speaking in a live technical interview. Include a concise answer, one practical example, and one likely follow-up interview question.",
+
+            _ =>
+                "Answer naturally."
+        };
+
         var body = new
         {
             contents = new[]
             {
-            new
-            {
-                parts = new object[]
+                new
                 {
-                    new
+                    parts = new object[]
                     {
-                        text = @"
-You are EchoPrepAI, a concise technical explainer.
+                        new
+                        {
+                            text =
+@"You are EchoPrepAI, a concise technical explainer.
+
+Answer Mode:
+" + modeInstruction + @"
 
 Analyze the screenshot and automatically identify whether it is:
 - SQL
@@ -97,7 +116,7 @@ Respond in this exact format.
 One sentence describing what is on the screen.
 
 ## Answer
-Give the best explanation in 3–6 sentences.
+Provide the explanation according to the selected Answer Mode.
 
 ## Code
 If code is relevant, return one clean code block only.
@@ -108,23 +127,21 @@ If code is relevant, return one clean code block only.
 - Bullet 3
 
 Rules:
-- Keep the response under 180 words.
 - Do not repeat the question.
-- Do not add unnecessary introductions.
 - Preserve code formatting.
 - If the screenshot is blurry, mention what is readable instead of guessing."
-                    },
-                    new
-                    {
-                        inline_data = new
+                        },
+                        new
                         {
-                            mime_type = "image/png",
-                            data = base64
+                            inline_data = new
+                            {
+                                mime_type = "image/png",
+                                data = base64
+                            }
                         }
                     }
                 }
             }
-        }
         };
 
         var json = JsonSerializer.Serialize(body);
@@ -140,6 +157,7 @@ Rules:
             try
             {
                 using var errorDoc = JsonDocument.Parse(responseText);
+
                 var message = errorDoc.RootElement
                     .GetProperty("error")
                     .GetProperty("message")

@@ -13,14 +13,79 @@ const connection = new signalR.HubConnectionBuilder()
 let fullAnswer = "";
 let latestCapturePath = null;
 
+// ---------- UI Elements ----------
+
 const captureBtn = document.getElementById("capture");
 const capturePreview = document.getElementById("capturePreview");
 const captureImage = document.getElementById("captureImage");
 const retakeCapture = document.getElementById("retakeCapture");
 const explainCapture = document.getElementById("explainCapture");
+
 const headphoneBtn = document.getElementById("headphoneMode");
 const systemBtn = document.getElementById("systemMode");
+
 const thinkingIndicator = document.getElementById("thinkingIndicator");
+
+// ---------- Smart Answer Modes ----------
+
+let answerMode = "quick";
+
+const modeQuick = document.getElementById("modeQuick");
+const modeDetailed = document.getElementById("modeDetailed");
+const modeInterview = document.getElementById("modeInterview");
+
+async function setMode(mode) {
+  answerMode = mode;
+
+  try {
+    // Save mode in backend
+    await fetch(`${API}/settings/answer-mode`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mode }),
+    });
+
+    // Update button UI
+    modeQuick?.classList.toggle("active", mode === "quick");
+    modeDetailed?.classList.toggle("active", mode === "detailed");
+    modeInterview?.classList.toggle("active", mode === "interview");
+
+    const labels = {
+      quick: "⚡ 30 Sec",
+      detailed: "📘 Detailed",
+      interview: "🎯 Interview",
+    };
+
+    showToast(`Mode: ${labels[mode]}`);
+
+    // If a question is already on screen, regenerate immediately
+    const currentQuestion = question.textContent.trim();
+
+    if (
+      currentQuestion &&
+      currentQuestion !== "Listening for interview question..."
+    ) {
+      fullAnswer = "";
+      answerEl.innerHTML = "";
+      thinkingIndicator.classList.remove("hidden");
+
+      await fetch(`${API}/interview/regenerate`, {
+        method: "POST",
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Failed to change mode");
+  }
+}
+
+modeQuick?.addEventListener("click", () => setMode("quick"));
+modeDetailed?.addEventListener("click", () => setMode("detailed"));
+modeInterview?.addEventListener("click", () => setMode("interview"));
+
+// ---------- Audio Mode ----------
 
 async function setAudioMode(mode) {
   const endpoint =
@@ -28,7 +93,9 @@ async function setAudioMode(mode) {
       ? `${API}/audio/mode/system`
       : `${API}/audio/mode/headphone`;
 
-  const res = await fetch(endpoint, { method: "POST" });
+  const res = await fetch(endpoint, {
+    method: "POST",
+  });
 
   if (!res.ok) throw new Error("Failed to switch audio mode");
 
@@ -43,11 +110,13 @@ function updateAudioMode(mode) {
     mode === "headphone" ? "You Speaking" : "Interview Listening";
 }
 
+// ---------- Screen Capture ----------
+
 async function startCapture() {
-  // Clear previous state immediately
   latestCapturePath = null;
   fullAnswer = "";
   answerEl.innerHTML = "";
+
   capturePreview.classList.add("hidden");
   captureImage.removeAttribute("src");
 
@@ -61,16 +130,11 @@ async function startCapture() {
       return;
     }
 
-    // Store the NEW path first
     latestCapturePath = file;
 
     captureBtn.classList.add("active");
 
-    captureImage.onload = () => {
-      resizeOverlay();
-    };
-
-    // Force Electron to reload the new image
+    captureImage.onload = resizeOverlay;
     captureImage.src = `${file}?t=${Date.now()}`;
 
     capturePreview.classList.remove("hidden");
@@ -82,7 +146,6 @@ async function startCapture() {
 }
 
 captureBtn?.addEventListener("click", startCapture);
-
 retakeCapture?.addEventListener("click", startCapture);
 
 explainCapture?.addEventListener("click", async () => {
@@ -94,24 +157,27 @@ explainCapture?.addEventListener("click", async () => {
   captureBtn.classList.remove("active");
   captureBtn.classList.add("processing");
 
-  showToast("Analyzing image...");
-
   fullAnswer = "";
   answerEl.innerHTML = "";
 
+  thinkingIndicator.classList.remove("hidden");
+
+  showToast(`Analyzing (${answerMode})...`);
+
   try {
-    await fetch("http://localhost:5153/api/vision/explain", {
+    await fetch(`${API}/vision/explain`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         imagePath: latestCapturePath,
+        mode: answerMode,
       }),
     });
-  } catch (err) {
+  } catch {
     captureBtn.classList.remove("processing");
-
+    thinkingIndicator.classList.add("hidden");
     showToast("Vision failed");
   }
 });
@@ -120,7 +186,7 @@ explainCapture?.addEventListener("click", async () => {
 
 async function loadResumeStatus() {
   try {
-    const res = await fetch("http://localhost:5153/api/resume/status");
+    const res = await fetch(`${API}/resume/status`);
     const data = await res.json();
 
     if (!data.loaded) {
@@ -139,6 +205,8 @@ async function loadResumeStatus() {
 }
 
 loadResumeStatus();
+
+// ---------- Load Audio Mode ----------
 
 async function loadAudioMode() {
   try {
@@ -258,6 +326,8 @@ connection.on("VisionCompleted", () => {
   captureBtn.classList.remove("processing");
   captureBtn.classList.add("active");
 
+  thinkingIndicator.classList.add("hidden");
+
   showToast("Explanation Ready");
 });
 
@@ -273,7 +343,20 @@ connection.on("ReceiveAnswerChunk", (chunk) => {
   resizeOverlay();
 });
 
+// ---------- Connect ----------
+
 connection
   .start()
-  .then(() => console.log("Overlay connected"))
+  .then(async () => {
+    console.log("Overlay connected");
+
+    const res = await fetch(`${API}/settings/answer-mode`);
+    const data = await res.json();
+
+    answerMode = data.mode;
+
+    modeQuick?.classList.toggle("active", answerMode === "quick");
+    modeDetailed?.classList.toggle("active", answerMode === "detailed");
+    modeInterview?.classList.toggle("active", answerMode === "interview");
+  })
   .catch(console.error);

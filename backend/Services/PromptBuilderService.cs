@@ -6,10 +6,10 @@ namespace backend.Services;
 
 public class PromptBuilderService
 {
-    public string Build(string question, ResumeProfile? profile)
+    public string Build(string question, ResumeProfile? profile, string mode = "quick")
     {
         if (profile == null)
-            return BuildGeneric(question);
+            return BuildGeneric(question, mode);
 
         var keywords = ExtractKeywords(question);
 
@@ -41,9 +41,27 @@ public class PromptBuilderService
             .Take(3)
             .ToList();
 
+        var modeInstruction = mode.ToLower() switch
+        {
+            "quick" =>
+                "Give a natural 20–30 second answer in 2–4 spoken sentences.",
+
+            "detailed" =>
+                "Give a detailed explanation with production context, examples, and best practices.",
+
+            "interview" =>
+                "Answer exactly as if speaking in a live technical interview. Include a concise answer, one practical example, and one likely follow-up interview question.",
+
+            _ =>
+                "Answer naturally."
+        };
+
         var sb = new StringBuilder();
 
         sb.AppendLine("You are answering a LIVE software engineering interview as the candidate.");
+        sb.AppendLine();
+        sb.AppendLine($"ANSWER MODE: {mode.ToUpper()}");
+        sb.AppendLine(modeInstruction);
         sb.AppendLine();
 
         sb.AppendLine("STRICT RULES:");
@@ -57,7 +75,7 @@ public class PromptBuilderService
         sb.AppendLine();
 
         sb.AppendLine("Candidate Summary:");
-        sb.AppendLine($"{profile.Name}");
+        sb.AppendLine(profile.Name);
         sb.AppendLine($"{profile.ExperienceYears}+ years experience");
         sb.AppendLine();
 
@@ -85,16 +103,6 @@ public class PromptBuilderService
 
         sb.AppendLine();
 
-        // if (relevantProjects.Any())
-        // {
-        //     sb.AppendLine("Relevant Projects:");
-
-        //     foreach (var p in relevantProjects)
-        //         sb.AppendLine($"- {p}");
-
-        //     sb.AppendLine();
-        // }
-
         if (relevantSkills.Any())
         {
             sb.AppendLine("Relevant Skills:");
@@ -105,12 +113,32 @@ public class PromptBuilderService
         sb.AppendLine("Interview Question:");
         sb.AppendLine(question);
         sb.AppendLine();
-        
+
         sb.AppendLine("Answer Format:");
-        sb.AppendLine("1. Give a natural 20–30 second answer.");
-        sb.AppendLine("2. If the evidence explicitly mentions the technology, reference that role.");
-        sb.AppendLine("3. Otherwise, explain the concept technically without claiming project implementation.");
-        sb.AppendLine("4. Give one generic production example.");
+
+        switch (mode.ToLower())
+        {
+            case "quick":
+                sb.AppendLine("1. Give a natural 20–30 second answer.");
+                sb.AppendLine("2. Reference the selected role only if the evidence explicitly supports it.");
+                sb.AppendLine("3. End with one production example.");
+                break;
+
+            case "detailed":
+                sb.AppendLine("1. Start with a concise answer.");
+                sb.AppendLine("2. Explain how it works.");
+                sb.AppendLine("3. Mention production considerations.");
+                sb.AppendLine("4. Give one practical example.");
+                sb.AppendLine("5. Mention one common pitfall.");
+                break;
+
+            case "interview":
+                sb.AppendLine("1. Give a confident interview-ready answer.");
+                sb.AppendLine("2. Reference the selected role only if supported by evidence.");
+                sb.AppendLine("3. Give one practical example.");
+                sb.AppendLine("4. Finish with one likely follow-up interview question.");
+                break;
+        }
 
         return sb.ToString();
     }
@@ -155,18 +183,26 @@ public class PromptBuilderService
         return score;
     }
 
-    private static string BuildGeneric(string question)
+    private static string BuildGeneric(string question, string mode)
     {
+        var modeInstruction = mode.ToLower() switch
+        {
+            "quick" => "Answer naturally in under 30 seconds.",
+            "detailed" => "Give a detailed explanation with examples.",
+            "interview" => "Answer exactly as if speaking in a live technical interview.",
+            _ => "Answer naturally."
+        };
+
         return $"""
 You are answering a live software engineering interview.
+
+Answer Mode:
+{modeInstruction}
 
 Question:
 {question}
 
-Give:
-- a 30-second answer,
-- practical explanation,
-- one production example.
+Give the answer according to the selected Answer Mode.
 """;
     }
 }

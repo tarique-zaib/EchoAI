@@ -27,4 +27,10 @@ public class InterviewController : ControllerBase
         _worker.Stop();
         return Ok();
     }
+    [HttpPost("regenerate")]
+    public async Task<IActionResult> Regenerate()
+    {
+        await _worker.RegenerateLastAnswer();
+        return Ok();
+    }
 }

@@ -10,6 +10,7 @@ public class AIAnswerService
     private readonly HttpClient _http;
     private readonly ResumeMemoryService _memory;
     private readonly PromptBuilderService _promptBuilder;
+
     private CancellationTokenSource? _currentGenerationCts;
     private readonly object _generationLock = new();
 
@@ -27,6 +28,7 @@ public class AIAnswerService
 
     public async IAsyncEnumerable<string> GenerateAnswerStream(
         string question,
+        string mode = "quick",
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         CancellationToken token;
@@ -44,44 +46,79 @@ public class AIAnswerService
 
         ResumeProfile? profile = _memory.Get();
 
-        // Build prompt from resume
-        var prompt = _promptBuilder.Build(question, profile);
+        var prompt = _promptBuilder.Build(question, profile, mode);
 
-        // Final grounding rules appended here
-        prompt += """
+        prompt += mode.ToLower() switch
+        {
+            "quick" => """
 
-====================================================
-FINAL GROUNDING RULES (MUST FOLLOW)
+================ QUICK MODE ================
 
-- You are the candidate answering a LIVE interview.
-- Speak naturally in first person.
-- Start answering immediately. Never introduce yourself.
-- Use ONLY the evidence already present in the prompt.
-- If the selected experience DOES NOT explicitly mention the asked technology,
-  DO NOT claim you implemented it there.
-- Never invent companies, projects, implementations, APIs, queue sizes,
-  architectures, or metrics.
-- Never mix information from different jobs.
-- If there is no direct evidence, simply explain the concept technically and
-  keep the production example generic.
+You are the interview candidate.
 
-Required output:
+Rules:
+- Speak naturally.
+- Maximum 70 words.
+- No unnecessary introduction.
+
+Output exactly:
 
 ## 30-Second Answer
 
-(2-4 spoken sentences)
+============================================
+
+""",
+
+            "detailed" => """
+
+================ DETAILED MODE ================
+
+Explain like a senior engineer teaching the topic.
+
+Output exactly:
+
+## Summary
+
+## Detailed Explanation
 
 ## Practical Example
 
-(One realistic production example.)
+## Best Practice
 
-====================================================
+Keep it under 220 words.
 
-""";
+===============================================
 
-        Console.WriteLine("\n========== OLLAMA PROMPT ==========");
+""",
+
+            "interview" => """
+
+================ INTERVIEW MODE ================
+
+Answer exactly as if speaking to the interviewer.
+
+Output exactly:
+
+## Interview Answer
+
+## Practical Example
+
+## Likely Follow-up
+
+## Interview Tip
+
+Keep it concise and conversational.
+
+===============================================
+
+""",
+
+            _ => ""
+        };
+
+        Console.WriteLine($"\n=== OLLAMA MODE: {mode.ToUpper()} ===");
         Console.WriteLine(prompt[..Math.Min(prompt.Length, 2500)]);
-        Console.WriteLine("===================================\n");
+        Console.WriteLine("=====================================\n");
 
         var payload = new
         {
@@ -91,10 +128,15 @@ Required output:
             keep_alive = "30m",
             options = new
             {
-                temperature = 0.1,
+                temperature = mode switch
+                {
+                    "interview" => 0.25,
+                    "detailed" => 0.15,
+                    _ => 0.05
+                },
                 top_p = 0.8,
                 repeat_penalty = 1.2,
-                num_predict = 500,
+                num_predict = mode == "quick" ? 180 : 450,
                 num_ctx = 12288
             }
         };
@@ -120,20 +162,11 @@ Required output:
         while (true)
         {
             if (token.IsCancellationRequested)
-            {
-                Console.WriteLine("Previous AI answer interrupted.");
                 yield break;
-            }
 
             var line = await reader.ReadLineAsync();
 
-            if (token.IsCancellationRequested)
-            {
-                Console.WriteLine("Previous AI answer interrupted.");
-                yield break;
-            }
-
-            if (line is null)
+            if (token.IsCancellationRequested || line is null)
                 yield break;
 
             if (string.IsNullOrWhiteSpace(line))

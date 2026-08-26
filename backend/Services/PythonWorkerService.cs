@@ -10,6 +10,7 @@ public class PythonWorkerService
 {
     private readonly IHubContext<InterviewHub> _hub;
     private readonly AIAnswerService _ai;
+    private string? _lastQuestion;
     private string _lastTranscript = "";
     private DateTime _lastTranscriptTime = DateTime.MinValue;
 
@@ -289,6 +290,7 @@ public class PythonWorkerService
 
             // Update UI with merged transcript
             await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
+            _lastQuestion = line;
 
             lock (_bufferLock)
             {
@@ -356,9 +358,9 @@ public class PythonWorkerService
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
 
                 var builder = new StringBuilder();
-
+                Console.WriteLine($"🚀 AI using mode: {SettingsController.CurrentMode}");
                 await foreach (var chunk in _ai.GenerateAnswerStream(
-    BuildContextQuestion(question),
+    BuildContextQuestion(question), SettingsController.CurrentMode,
     token))
                 {
                     builder.Append(chunk);
@@ -450,5 +452,30 @@ public class PythonWorkerService
         _debounceCts = null;
 
         Console.WriteLine("Python worker stopped.");
+    }
+
+    public async Task RegenerateLastAnswer()
+    {
+        if (string.IsNullOrWhiteSpace(_lastQuestion))
+            return;
+
+        var builder = new StringBuilder();
+
+        Console.WriteLine($"🔄 Regenerating in mode: {SettingsController.CurrentMode}");
+
+        await _hub.Clients.All.SendAsync("ClearAnswer");
+
+        await foreach (var chunk in _ai.GenerateAnswerStream(
+            BuildContextQuestion(_lastQuestion),
+            SettingsController.CurrentMode,
+            CancellationToken.None))
+        {
+            builder.Append(chunk);
+            await _hub.Clients.All.SendAsync("ReceiveAnswerChunk", chunk);
+        }
+
+        _lastAiAnswer = builder.ToString();
+
+        Console.WriteLine("Regenerated answer completed.");
     }
 }

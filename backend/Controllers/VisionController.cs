@@ -14,13 +14,26 @@ public class VisionController : ControllerBase
     public class VisionRequest
     {
         public string ImagePath { get; set; } = "";
+        public string Mode { get; set; } = "quick";
     }
 
     [HttpPost("explain")]
     public async Task<IActionResult> Explain([FromBody] VisionRequest request)
     {
-        await _visionService.ExplainImage(request.ImagePath);
+        if (string.IsNullOrWhiteSpace(request.ImagePath))
+        {
+            return BadRequest(new { message = "ImagePath is required." });
+        }
 
-        return Ok();
+        await _visionService.ExplainImage(
+            request.ImagePath,
+            request.Mode
+        );
+
+        return Ok(new
+        {
+            success = true,
+            mode = request.Mode
+        });
     }
 }
