@@ -316,7 +316,7 @@ connection.on("ReceiveTranscript", (q) => {
 connection.on("ClearAnswer", () => {
   fullAnswer = "";
   answerEl.innerHTML = "";
-
+  document.querySelector(".answer-panel").style.display = "none";
   thinkingIndicator.classList.remove("hidden");
 
   resizeOverlay();
@@ -333,6 +333,7 @@ connection.on("VisionCompleted", () => {
 
 connection.on("ReceiveAnswerChunk", (chunk) => {
   thinkingIndicator.classList.add("hidden");
+  document.querySelector(".answer-panel").style.display = "block";
 
   fullAnswer += chunk;
 
