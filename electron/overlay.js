@@ -44,6 +44,13 @@ function updateAudioMode(mode) {
 }
 
 async function startCapture() {
+  // Clear previous state immediately
+  latestCapturePath = null;
+  fullAnswer = "";
+  answerEl.innerHTML = "";
+  capturePreview.classList.add("hidden");
+  captureImage.removeAttribute("src");
+
   showToast("Select area to capture");
 
   try {
@@ -54,18 +61,21 @@ async function startCapture() {
       return;
     }
 
+    // Store the NEW path first
+    latestCapturePath = file;
+
     captureBtn.classList.add("active");
 
     captureImage.onload = () => {
-      resizeOverlay(); // Resize AFTER image is rendered
+      resizeOverlay();
     };
 
+    // Force Electron to reload the new image
     captureImage.src = `${file}?t=${Date.now()}`;
 
     capturePreview.classList.remove("hidden");
 
     showToast("📷 Screenshot Captured");
-    latestCapturePath = file;
   } catch {
     showToast("Capture failed");
   }

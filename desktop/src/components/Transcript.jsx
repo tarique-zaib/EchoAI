@@ -5,7 +5,7 @@ export default function Transcript({ transcript }) {
     <section className="question-card">
       <div className="question-label">● Current Question</div>
 
-      <h2>{transcript || "Waiting for your first question..."}</h2>
+      <h2>{transcript || "Listening for your first question..."}</h2>
     </section>
   );
 }

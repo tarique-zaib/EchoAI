@@ -60,6 +60,9 @@ export default function App() {
 
     connection.on("AnswerCompleted", () => {
       console.log("Answer Completed");
+      requestAnimationFrame(() => {
+        setStatus("Listening");
+      });
     });
 
     async function connect() {

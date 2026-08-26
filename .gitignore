@@ -24,3 +24,4 @@ obj/
 
 # Uploads (optional)
 backend/uploads/
+temp/

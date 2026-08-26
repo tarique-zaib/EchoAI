@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import "./AIPanel.css";
 
 export default function AIPanel({ answer, status }) {
   const [displayed, setDisplayed] = useState("");
+  const markdownRef = useRef(null);
 
   useEffect(() => {
     if (answer.startsWith(displayed)) {
@@ -17,6 +18,13 @@ export default function AIPanel({ answer, status }) {
     }
   }, [answer, displayed]);
 
+  // Auto-scroll while the answer streams
+  useEffect(() => {
+    if (markdownRef.current) {
+      markdownRef.current.scrollTop = markdownRef.current.scrollHeight;
+    }
+  }, [displayed]);
+
   return (
     <section className="answer-panel">
       <div className="answer-header">
@@ -24,7 +32,7 @@ export default function AIPanel({ answer, status }) {
         <h2>AI Answer</h2>
       </div>
 
-      <div className="markdown-body">
+      <div ref={markdownRef} className="markdown-body">
         {displayed ? (
           <>
             <ReactMarkdown>{displayed}</ReactMarkdown>
