@@ -43,7 +43,7 @@ pending_lock = threading.Lock()
 print("Loading model...", flush=True)
 
 model = WhisperModel(
-    "tiny",
+    "base",
     device="cpu",
     compute_type="int8"
 )
