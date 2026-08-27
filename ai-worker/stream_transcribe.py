@@ -20,7 +20,7 @@ args, _ = parser.parse_known_args()
 
 RATE = 16000
 BLOCK = 2048
-CONTEXT_SEC = 1.0     # Keep 1 second before speech
+CONTEXT_SEC = 1.5     # Keep 1 second before speech
 
 warnings.filterwarnings(
     "ignore",
@@ -50,8 +50,8 @@ model = WhisperModel(
 
 vad_model = load_silero_vad()
 
-MIN_SPEECH_MS = 250
-MIN_SILENCE_MS = 180
+MIN_SPEECH_MS = 350
+MIN_SILENCE_MS = 450
 
 print("Listening...", flush=True)
 
@@ -201,7 +201,7 @@ def worker():
             latest = speech[-1]
 
             # Wait until the speaker has been silent for ~200 ms
-            if len(buffer) - latest["end"] < int(RATE * 0.2):
+            if len(buffer) - latest["end"] < int(RATE * 0.45):
                 continue
 
             last_start = latest["start"]
