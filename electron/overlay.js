@@ -1,6 +1,5 @@
 const profileEl = document.querySelector(".profile");
 const statusText = document.querySelector(".status-text");
-const status = document.querySelector(".status");
 const question = document.querySelector(".question");
 const answerEl = document.querySelector(".answer");
 const API = "http://localhost:5153/api";
@@ -12,6 +11,7 @@ const connection = new signalR.HubConnectionBuilder()
 
 let fullAnswer = "";
 let latestCapturePath = null;
+const OVERLAY_WIDTH = 560;
 
 // ---------- UI Elements ----------
 
@@ -26,19 +26,19 @@ const systemBtn = document.getElementById("systemMode");
 
 const thinkingIndicator = document.getElementById("thinkingIndicator");
 
-// ---------- Smart Answer Modes ----------
-
-let answerMode = "quick";
-
 const modeQuick = document.getElementById("modeQuick");
 const modeDetailed = document.getElementById("modeDetailed");
 const modeInterview = document.getElementById("modeInterview");
+
+
+// ---------- Answer Modes ----------
+
+let answerMode = "quick";
 
 async function setMode(mode) {
   answerMode = mode;
 
   try {
-    // Save mode in backend
     await fetch(`${API}/settings/answer-mode`, {
       method: "POST",
       headers: {
@@ -47,7 +47,6 @@ async function setMode(mode) {
       body: JSON.stringify({ mode }),
     });
 
-    // Update button UI
     modeQuick?.classList.toggle("active", mode === "quick");
     modeDetailed?.classList.toggle("active", mode === "detailed");
     modeInterview?.classList.toggle("active", mode === "interview");
@@ -60,7 +59,6 @@ async function setMode(mode) {
 
     showToast(`Mode: ${labels[mode]}`);
 
-    // If a question is already on screen, regenerate immediately
     const currentQuestion = question.textContent.trim();
 
     if (
@@ -75,8 +73,7 @@ async function setMode(mode) {
         method: "POST",
       });
     }
-  } catch (err) {
-    console.error(err);
+  } catch {
     showToast("Failed to change mode");
   }
 }
@@ -93,11 +90,9 @@ async function setAudioMode(mode) {
       ? `${API}/audio/mode/system`
       : `${API}/audio/mode/headphone`;
 
-  const res = await fetch(endpoint, {
-    method: "POST",
-  });
+  const res = await fetch(endpoint, { method: "POST" });
 
-  if (!res.ok) throw new Error("Failed to switch audio mode");
+  if (!res.ok) throw new Error();
 
   return res.json();
 }
@@ -196,7 +191,6 @@ async function loadResumeStatus() {
     }
 
     statusText.textContent = "Resume Loaded";
-
     profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
   } catch {
     statusText.textContent = "Offline";
@@ -214,9 +208,7 @@ async function loadAudioMode() {
     const data = await res.json();
 
     updateAudioMode(data.mode);
-  } catch {
-    console.log("Audio mode unavailable");
-  }
+  } catch {}
 }
 
 loadAudioMode();
@@ -245,21 +237,19 @@ systemBtn?.addEventListener("click", async () => {
 
 function resizeOverlay() {
   const card = document.querySelector(".card");
+  if (!card) return;
 
   const height = Math.min(Math.max(card.scrollHeight + 40, 260), 620);
 
-  window.electron.resizeWindow(620, height);
+  window.electron.resizeWindow(OVERLAY_WIDTH, height);
 }
 
 // ---------- Toast ----------
 
 function showToast(message) {
-  const existing = document.querySelector(".toast");
-
-  if (existing) existing.remove();
+  document.querySelector(".toast")?.remove();
 
   const toast = document.createElement("div");
-
   toast.className = "toast";
   toast.textContent = message;
 
@@ -269,7 +259,6 @@ function showToast(message) {
 
   setTimeout(() => {
     toast.classList.remove("show");
-
     setTimeout(() => toast.remove(), 300);
   }, 2000);
 }
@@ -296,24 +285,19 @@ connection.on("ReceiveStatus", (s) => {
 
 connection.on("ResumeUpdated", (data) => {
   statusText.textContent = "Resume Loaded";
-
   profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
 });
 
-// Live subtitle while speech is ongoing
 connection.on("ReceivePartialTranscript", (text) => {
   question.textContent = text.replace(/^Explained\b/i, "Explain");
   resizeOverlay();
 });
 
 connection.on("ReceiveTranscript", (q) => {
-  q = q.replace(/^Explained\b/i, "Explain");
-
-  question.textContent = q;
+  question.textContent = q.replace(/^Explained\b/i, "Explain");
 
   fullAnswer = "";
   answerEl.innerHTML = "";
-
   thinkingIndicator.classList.remove("hidden");
 
   resizeOverlay();
@@ -324,16 +308,13 @@ connection.on("ClearAnswer", () => {
   answerEl.innerHTML = "";
   document.querySelector(".answer-panel").style.display = "none";
   thinkingIndicator.classList.remove("hidden");
-
   resizeOverlay();
 });
 
 connection.on("VisionCompleted", () => {
   captureBtn.classList.remove("processing");
   captureBtn.classList.add("active");
-
   thinkingIndicator.classList.add("hidden");
-
   showToast("Explanation Ready");
 });
 
@@ -342,9 +323,7 @@ connection.on("ReceiveAnswerChunk", (chunk) => {
   document.querySelector(".answer-panel").style.display = "block";
 
   fullAnswer += chunk;
-
   answerEl.innerHTML = marked.parse(fullAnswer);
-
   answerEl.scrollTop = answerEl.scrollHeight;
 
   resizeOverlay();

@@ -1,10 +1,15 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("electron", {
+  // Window
   resizeWindow: (w, h) => ipcRenderer.send("resize-window", { w, h }),
+  dragWindow: (x, y) => ipcRenderer.send("overlay-drag", { x, y }),
+  getWindowPosition: () => ipcRenderer.invoke("get-window-position"),
 
+  // Screen Capture
   captureScreen: () => ipcRenderer.invoke("capture-screen"),
 
+  // Events
   onGhostMode: (callback) =>
     ipcRenderer.on("ghost-mode", (_, enabled) => callback(enabled)),
 
