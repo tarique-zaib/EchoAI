@@ -19,6 +19,7 @@ export default function App() {
   const [status, setStatus] = useState("Idle");
   const [questionCount, setQuestionCount] = useState(0);
   const [pulseKey, setPulseKey] = useState(0);
+  const [partialTranscript, setPartialTranscript] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -36,8 +37,13 @@ export default function App() {
       }
     });
 
+    connection.on("ReceivePartialTranscript", (text) => {
+      setPartialTranscript(text);
+    });
+
     // ---------------- Transcript ----------------
     connection.on("ReceiveTranscript", (text) => {
+      setPartialTranscript("");
       setTranscript((prev) => (prev ? prev + "\n" + text : text));
       setQuestionCount((prev) => prev + 1);
     });
@@ -86,6 +92,7 @@ export default function App() {
 
       connection.off("ReceiveStatus");
       connection.off("ReceiveTranscript");
+      connection.off("ReceivePartialTranscript");
       connection.off("ClearAnswer");
       connection.off("AnswerStarted");
       connection.off("ReceiveAnswerChunk");
@@ -152,7 +159,10 @@ export default function App() {
 
       <Orb status={status} pulseKey={pulseKey} />
       <ResumeUpload />
-      <Transcript transcript={transcript} />
+      <Transcript
+        transcript={transcript}
+        partialTranscript={partialTranscript}
+      />
 
       <AIPanel answer={answer} status={status} />
     </div>

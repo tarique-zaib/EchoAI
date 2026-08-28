@@ -300,6 +300,12 @@ connection.on("ResumeUpdated", (data) => {
   profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
 });
 
+// Live subtitle while speech is ongoing
+connection.on("ReceivePartialTranscript", (text) => {
+  question.textContent = text.replace(/^Explained\b/i, "Explain");
+  resizeOverlay();
+});
+
 connection.on("ReceiveTranscript", (q) => {
   q = q.replace(/^Explained\b/i, "Explain");
 

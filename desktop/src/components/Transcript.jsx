@@ -1,11 +1,13 @@
 import "./Transcript.css";
 
-export default function Transcript({ transcript }) {
+export default function Transcript({ transcript, partialTranscript }) {
   return (
-    <section className="question-card">
-      <div className="question-label">● Current Question</div>
+    <div className="transcript-panel">
+      <div className="confirmed">{transcript}</div>
 
-      <h2>{transcript || "Listening for your first question..."}</h2>
-    </section>
+      {partialTranscript && (
+        <div className="partial">🎙 {partialTranscript}</div>
+      )}
+    </div>
   );
 }

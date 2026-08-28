@@ -21,6 +21,11 @@ CONTEXT_SEC = 1.5
 LAST_TRANSCRIPT = ""
 MAX_CONTEXT_CHARS = 200
 
+PARTIAL_INTERVAL = 0.4
+partial_buffer = np.zeros(0, dtype=np.float32)
+partial_lock = threading.Lock()
+last_partial = ""
+
 QUESTION_HOLD_MS = 900
 
 warnings.filterwarnings(
@@ -239,12 +244,45 @@ def transcribe(audio):
                 daemon=True,
             ).start()
 
+def partial_worker():
+    global partial_buffer, last_partial
 
+    while True:
+        time.sleep(PARTIAL_INTERVAL)
+
+        with partial_lock:
+            audio = partial_buffer.copy()
+
+        if len(audio) < RATE:
+            continue
+
+        try:
+            segments, _ = model.transcribe(
+                audio[-RATE * 2:],
+                language="en",
+                beam_size=1,
+                best_of=1,
+                temperature=0,
+                vad_filter=False,
+                condition_on_previous_text=False
+            )
+
+            text = clean_text(
+                " ".join(s.text.strip() for s in segments).strip()
+            )
+
+            if len(text.split()) >= 2 and text != last_partial:
+                last_partial = text
+                print(f"PARTIAL:{text}", flush=True)
+
+        except Exception:
+            pass
 # ---------------------------------
 # Worker
 # ---------------------------------
 
 def worker():
+    global partial_buffer
     buffer = np.zeros(0, dtype=np.float32)
 
     while True:
@@ -256,6 +294,11 @@ def worker():
         chunk = chunk.astype(np.float32)
 
         buffer = np.concatenate([buffer, chunk])
+        with partial_lock:
+            partial_buffer = np.concatenate([partial_buffer, chunk])
+
+            if len(partial_buffer) > RATE * 3:
+                partial_buffer = partial_buffer[-RATE * 3:]
 
         if len(buffer) > RATE * 8:
             buffer = buffer[-RATE * 8:]
@@ -309,6 +352,7 @@ threading.Thread(
     target=worker,
     daemon=True
 ).start()
+threading.Thread(target=partial_worker, daemon=True).start()
 
 
 # ---------------------------------

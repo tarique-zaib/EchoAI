@@ -207,8 +207,18 @@ public class PythonWorkerService
 
             Console.WriteLine($"PYTHON: {line}");
 
+            // Live subtitles: update overlay only.
+            // Do NOT send partial text to Question Detector or AI.
+            if (line.StartsWith("PARTIAL:", StringComparison.Ordinal))
+            {
+                var partial = line.Substring("PARTIAL:".Length).Trim();
+
+                await _hub.Clients.All.SendAsync("ReceivePartialTranscript", partial);
+
+                continue;
+            }
+
             // Ignore candidate speech while AI is answering.
-            // If a brand-new interviewer question starts, stop suppressing immediately.
             if (_suppressCandidateSpeech)
             {
                 if (IsLikelyInterviewQuestion(line))
@@ -221,7 +231,6 @@ public class PythonWorkerService
                     continue;
                 }
             }
-
             if (line.StartsWith("Loading model"))
             {
                 await _hub.Clients.All.SendAsync("ReceiveStatus", "Loading model...");
