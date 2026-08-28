@@ -2,12 +2,23 @@ import "./Transcript.css";
 
 export default function Transcript({ transcript, partialTranscript }) {
   return (
-    <div className="transcript-panel">
-      <div className="confirmed">{transcript}</div>
-
+    <>
       {partialTranscript && (
-        <div className="partial">🎙 {partialTranscript}</div>
+        <div className="live-subtitle">
+          <span className="subtitle-dot"></span>
+          {partialTranscript}
+        </div>
       )}
-    </div>
+
+      <section className="transcript-panel">
+        <div className="transcript-header">
+          <h2>Interview Transcript</h2>
+        </div>
+
+        <div className="transcript-body">
+          {transcript || "Waiting for interview question..."}
+        </div>
+      </section>
+    </>
   );
 }

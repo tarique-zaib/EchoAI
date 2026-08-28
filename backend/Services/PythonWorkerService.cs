@@ -8,6 +8,8 @@ namespace backend.Services;
 
 public class PythonWorkerService
 {
+    private string _lastPartialQuestion = "";
+    private DateTime _lastPartialTime = DateTime.MinValue;
     private readonly IHubContext<InterviewHub> _hub;
     private readonly AIAnswerService _ai;
     private string? _lastQuestion;
@@ -21,6 +23,7 @@ public class PythonWorkerService
     private readonly object _bufferLock = new();
     private readonly Queue<string> _sessionQuestions = new();
     private readonly Queue<string> _sessionAnswers = new();
+
     private const int MaxHistory = 3;
 
     private string _currentQuestion = "";
@@ -212,8 +215,17 @@ public class PythonWorkerService
             if (line.StartsWith("PARTIAL:", StringComparison.Ordinal))
             {
                 var partial = line.Substring("PARTIAL:".Length).Trim();
+                var now = DateTime.UtcNow;
 
-                await _hub.Clients.All.SendAsync("ReceivePartialTranscript", partial);
+                if (partial.Length >= 12 &&
+                    partial != _lastPartialQuestion &&
+                    (now - _lastPartialTime).TotalMilliseconds > 500)
+                {
+                    _lastPartialQuestion = partial;
+                    _lastPartialTime = now;
+
+                    await _hub.Clients.All.SendAsync("ReceivePartialTranscript", partial);
+                }
 
                 continue;
             }
@@ -297,6 +309,9 @@ public class PythonWorkerService
             _lastTranscript = line;
             _lastTranscriptTime = DateTime.Now;
 
+            _lastPartialQuestion = "";
+            _lastPartialTime = DateTime.MinValue;
+
             // Update UI with merged transcript
             await _hub.Clients.All.SendAsync("ReceiveTranscript", line);
             _lastQuestion = line;
@@ -342,7 +357,7 @@ public class PythonWorkerService
     {
         try
         {
-            await Task.Delay(900, token);
+            await Task.Delay(500, token);
 
             string question;
 
@@ -462,7 +477,6 @@ public class PythonWorkerService
 
         Console.WriteLine("Python worker stopped.");
     }
-
     public async Task RegenerateLastAnswer()
     {
         if (string.IsNullOrWhiteSpace(_lastQuestion))
@@ -473,6 +487,8 @@ public class PythonWorkerService
         Console.WriteLine($"🔄 Regenerating in mode: {SettingsController.CurrentMode}");
 
         await _hub.Clients.All.SendAsync("ClearAnswer");
+        await _hub.Clients.All.SendAsync("AnswerStarted");
+        await _hub.Clients.All.SendAsync("ReceiveStatus", "AI Answering");
 
         await foreach (var chunk in _ai.GenerateAnswerStream(
             BuildContextQuestion(_lastQuestion),
@@ -484,6 +500,9 @@ public class PythonWorkerService
         }
 
         _lastAiAnswer = builder.ToString();
+
+        await _hub.Clients.All.SendAsync("AnswerCompleted");
+        await _hub.Clients.All.SendAsync("ReceiveStatus", "Listening");
 
         Console.WriteLine("Regenerated answer completed.");
     }
