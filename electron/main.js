@@ -11,6 +11,38 @@ let overlay;
 
 const NORMAL_SIZE = { width: 560, height: 260 };
 const MINI_SIZE = { width: 90, height: 90 };
+let cameraMode = false;
+let previousBounds = null;
+
+const { screen } = require("electron");
+
+ipcMain.on("camera-mode", (_, enabled) => {
+  if (!overlay || overlay.isDestroyed()) return;
+
+  const display = screen.getPrimaryDisplay();
+  const { width } = display.workAreaSize;
+
+  if (enabled && !cameraMode) {
+  previousBounds = overlay.getBounds();
+  cameraMode = true;
+
+  const CAMERA_WIDTH = 760;
+  const CAMERA_HEIGHT = 320;
+
+  overlay.setBounds(
+    {
+      x: Math.round((width - CAMERA_WIDTH) / 2),
+      y: 16,
+      width: CAMERA_WIDTH,
+      height: CAMERA_HEIGHT,
+    },
+    true
+  );
+} else if (!enabled && cameraMode && previousBounds) {
+  cameraMode = false;
+  overlay.setBounds(previousBounds, true);
+}
+});
 
 // ---------------- Resize ----------------
 

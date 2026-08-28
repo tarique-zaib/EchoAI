@@ -34,7 +34,7 @@ body {
 
   border-radius: 28px 28px 0 0;
 
-  background: rgba(255,255,255,.04);
+  background: rgba(255, 255, 255, 0.04);
 
   -webkit-app-region: drag;
   cursor: move;
@@ -60,9 +60,8 @@ body {
   -webkit-app-region: no-drag;
 }
 
-
 .drag-actions button:hover {
-  background: rgba(255,255,255,.08);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .header {
@@ -536,4 +535,83 @@ select {
 .mini-mode .dot {
   width: 18px;
   height: 18px;
+}
+/* ==========================================
+   Camera Mode
+========================================== */
+
+/* ===== Camera Mode (Fixed Overlay) ===== */
+
+body.camera-mode .profile,
+body.camera-mode .audio-switch,
+body.camera-mode .answer-modes,
+body.camera-mode .capture-preview,
+body.camera-mode .capture-btn,
+body.camera-mode .thinking,
+body.camera-mode .question{
+    display:none !important;
+}
+
+body.camera-mode .card{
+    position:relative;
+    width:100%;
+    height:100vh;
+    margin:0;
+    padding:12px 16px;
+    box-sizing:border-box;
+    background:rgba(8,12,20,.12);
+    border:none;
+}
+
+body.camera-mode .header{
+    position:absolute;
+    top:12px;
+    left:16px;
+    margin:0;
+    z-index:5;
+}
+
+body.camera-mode .drag-bar{
+    position:absolute;
+    top:8px;
+    right:12px;
+    z-index:6;
+    background:transparent;
+}
+
+/* THIS is the important part */
+
+body.camera-mode .answer-panel{
+    display:block !important;
+    margin:12px 0 0;
+    padding:0;
+    background:none;
+    border:none;
+}
+
+body.camera-mode .answer-container::-webkit-scrollbar{
+    display:none;
+}
+
+body.camera-mode .answer-container{
+    width:100%;
+    height:160px;
+    overflow-y:auto;
+    overflow-x:hidden;
+    padding-right:8px;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+}
+
+
+body.camera-mode .answer{
+    font-size:18px;
+    line-height:1.55;
+    font-weight:600;
+    color:#fff;
+    text-align:left;
+}
+
+body.camera-mode .answer p{
+    margin:0 0 12px;
 }
