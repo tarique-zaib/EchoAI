@@ -2,6 +2,7 @@ const profileEl = document.querySelector(".profile");
 const statusText = document.querySelector(".status-text");
 const question = document.querySelector(".question");
 const answerEl = document.querySelector(".answer");
+const answerContainer = document.querySelector(".answer-container");
 const API = "http://localhost:5153/api";
 
 const connection = new signalR.HubConnectionBuilder()
@@ -12,6 +13,9 @@ const connection = new signalR.HubConnectionBuilder()
 let fullAnswer = "";
 let latestCapturePath = null;
 const OVERLAY_WIDTH = 560;
+let teleWords = [];
+let teleIndex = 0;
+let teleTimer = null;
 
 // ---------- UI Elements ----------
 
@@ -29,7 +33,9 @@ const thinkingIndicator = document.getElementById("thinkingIndicator");
 const modeQuick = document.getElementById("modeQuick");
 const modeDetailed = document.getElementById("modeDetailed");
 const modeInterview = document.getElementById("modeInterview");
+const cameraModeBtn = document.getElementById("cameraMode");
 
+let cameraMode = false;
 
 // ---------- Answer Modes ----------
 
@@ -140,6 +146,16 @@ async function startCapture() {
   }
 }
 
+cameraModeBtn?.addEventListener("click", () => {
+  cameraMode = !cameraMode;
+
+  document.body.classList.toggle("camera-mode", cameraMode);
+
+  window.electron.cameraMode(cameraMode);
+
+  showToast(cameraMode ? "📷 Camera Mode" : "Normal Mode");
+});
+
 captureBtn?.addEventListener("click", startCapture);
 retakeCapture?.addEventListener("click", startCapture);
 
@@ -236,6 +252,8 @@ systemBtn?.addEventListener("click", async () => {
 // ---------- Resize ----------
 
 function resizeOverlay() {
+  if (cameraMode) return;
+
   const card = document.querySelector(".card");
   if (!card) return;
 
@@ -295,7 +313,13 @@ connection.on("ReceivePartialTranscript", (text) => {
 
 connection.on("ReceiveTranscript", (q) => {
   question.textContent = q.replace(/^Explained\b/i, "Explain");
+  teleIndex = 0;
+  teleWords = [];
 
+  if (teleTimer) {
+    clearInterval(teleTimer);
+    teleTimer = null;
+  }
   fullAnswer = "";
   answerEl.innerHTML = "";
   thinkingIndicator.classList.remove("hidden");
@@ -305,6 +329,13 @@ connection.on("ReceiveTranscript", (q) => {
 
 connection.on("ClearAnswer", () => {
   fullAnswer = "";
+  teleIndex = 0;
+  teleWords = [];
+
+  if (teleTimer) {
+    clearInterval(teleTimer);
+    teleTimer = null;
+  }
   answerEl.innerHTML = "";
   document.querySelector(".answer-panel").style.display = "none";
   thinkingIndicator.classList.remove("hidden");
@@ -323,10 +354,15 @@ connection.on("ReceiveAnswerChunk", (chunk) => {
   document.querySelector(".answer-panel").style.display = "block";
 
   fullAnswer += chunk;
-  answerEl.innerHTML = marked.parse(fullAnswer);
-  answerEl.scrollTop = answerEl.scrollHeight;
 
-  resizeOverlay();
+  // Always render the FULL answer
+  answerEl.innerHTML = marked.parse(fullAnswer);
+
+  // Auto-scroll only in Normal Mode
+  if (!cameraMode) {
+    answerContainer.scrollTop = answerContainer.scrollHeight;
+    resizeOverlay();
+  }
 });
 
 // ---------- Connect ----------

@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld("electron", {
   // Screen Capture
   captureScreen: () => ipcRenderer.invoke("capture-screen"),
 
+  cameraMode: (enabled) => ipcRenderer.send("camera-mode", enabled),
+
   // Events
   onGhostMode: (callback) =>
     ipcRenderer.on("ghost-mode", (_, enabled) => callback(enabled)),
