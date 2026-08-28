@@ -130,14 +130,21 @@ Keep it concise and conversational.
             {
                 temperature = mode switch
                 {
-                    "interview" => 0.25,
-                    "detailed" => 0.15,
-                    _ => 0.05
+                    "quick" => 0.05,
+                    "detailed" => 0.12,
+                    "interview" => 0.18,
+                    _ => 0.10
                 },
                 top_p = 0.8,
-                repeat_penalty = 1.2,
-                num_predict = mode == "quick" ? 180 : 450,
-                num_ctx = 12288
+                repeat_penalty = 1.15,
+                num_predict = mode switch
+                {
+                    "quick" => 120,
+                    "detailed" => 480,
+                    "interview" => 380,
+                    _ => 250
+                },
+                num_ctx = 4096
             }
         };
 
@@ -149,15 +156,19 @@ Keep it concise and conversational.
                 "application/json")
         };
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         using var response = await _http.SendAsync(
             request,
             HttpCompletionOption.ResponseHeadersRead,
             token);
 
         response.EnsureSuccessStatusCode();
+        Console.WriteLine($"⚡ Ollama headers: {sw.ElapsedMilliseconds} ms");
 
         using var stream = await response.Content.ReadAsStreamAsync(token);
         using var reader = new StreamReader(stream);
+        bool firstToken = true;
 
         while (true)
         {
@@ -191,7 +202,15 @@ Keep it concise and conversational.
             }
 
             if (!string.IsNullOrEmpty(chunk))
+            {
+                if (firstToken)
+                {
+                    Console.WriteLine($"🚀 First token: {sw.ElapsedMilliseconds} ms");
+                    firstToken = false;
+                }
+
                 yield return chunk;
+            }
 
             if (done)
                 break;

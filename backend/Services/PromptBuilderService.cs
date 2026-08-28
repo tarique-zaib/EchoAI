@@ -34,13 +34,6 @@ public class PromptBuilderService
             .Take(10)
             .ToList();
 
-        var relevantProjects = profile.Projects
-            .Where(project =>
-                keywords.Any(k =>
-                    project.Contains(k, StringComparison.OrdinalIgnoreCase)))
-            .Take(3)
-            .ToList();
-
         var modeInstruction = mode.ToLower() switch
         {
             "quick" =>
@@ -64,14 +57,10 @@ public class PromptBuilderService
         sb.AppendLine(modeInstruction);
         sb.AppendLine();
 
-        sb.AppendLine("STRICT RULES:");
-        sb.AppendLine("- You are the candidate.");
-        sb.AppendLine("- Use ONLY the evidence shown below.");
-        sb.AppendLine("- Do NOT infer technologies that are not explicitly mentioned.");
-        sb.AppendLine("- If the selected experience does not mention the asked technology, do NOT claim you implemented it there.");
-        sb.AppendLine("- Instead say: 'I'll explain the concept technically, and in my resume my closest related experience is shown below.'");
-        sb.AppendLine("- Never combine details from different jobs.");
-        sb.AppendLine("- Speak naturally in first person.");
+        sb.AppendLine("Grounding Rules:");
+        sb.AppendLine("- Speak in first person as the candidate.");
+        sb.AppendLine("- Use only the resume evidence below.");
+        sb.AppendLine("- If the resume doesn't support a claim, explain the concept instead of inventing experience.");
         sb.AppendLine();
 
         sb.AppendLine("Candidate Summary:");
@@ -90,15 +79,20 @@ public class PromptBuilderService
 
         if (!string.IsNullOrWhiteSpace(job.Description))
         {
+            var lines = job.Description
+    .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+    .Take(3);
+
             sb.AppendLine("Relevant Details:");
-            sb.AppendLine(job.Description);
+            foreach (var line in lines)
+                sb.AppendLine(line);
         }
 
-        if (job.Projects.Any())
+        if (job.Projects.Any() && keywords.Any(k =>
+    job.Projects.Any(p => p.Contains(k, StringComparison.OrdinalIgnoreCase))))
         {
-            sb.AppendLine("Projects in this role:");
-            foreach (var p in job.Projects)
-                sb.AppendLine($"- {p}");
+            sb.AppendLine("Relevant Project:");
+            sb.AppendLine($"- {job.Projects.First()}");
         }
 
         sb.AppendLine();
@@ -106,39 +100,12 @@ public class PromptBuilderService
         if (relevantSkills.Any())
         {
             sb.AppendLine("Relevant Skills:");
-            sb.AppendLine(string.Join(", ", relevantSkills));
-            sb.AppendLine();
+            sb.AppendLine(string.Join(", ", relevantSkills.Take(5)));
         }
 
         sb.AppendLine("Interview Question:");
         sb.AppendLine(question);
         sb.AppendLine();
-
-        sb.AppendLine("Answer Format:");
-
-        switch (mode.ToLower())
-        {
-            case "quick":
-                sb.AppendLine("1. Give a natural 20–30 second answer.");
-                sb.AppendLine("2. Reference the selected role only if the evidence explicitly supports it.");
-                sb.AppendLine("3. End with one production example.");
-                break;
-
-            case "detailed":
-                sb.AppendLine("1. Start with a concise answer.");
-                sb.AppendLine("2. Explain how it works.");
-                sb.AppendLine("3. Mention production considerations.");
-                sb.AppendLine("4. Give one practical example.");
-                sb.AppendLine("5. Mention one common pitfall.");
-                break;
-
-            case "interview":
-                sb.AppendLine("1. Give a confident interview-ready answer.");
-                sb.AppendLine("2. Reference the selected role only if supported by evidence.");
-                sb.AppendLine("3. Give one practical example.");
-                sb.AppendLine("4. Finish with one likely follow-up interview question.");
-                break;
-        }
 
         return sb.ToString();
     }
