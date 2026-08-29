@@ -10,7 +10,7 @@ const { captureRegion } = require("./capture");
 const fs = require("fs");
 let overlay;
 
-const NORMAL_SIZE = { width: 560, height: 260 };
+const NORMAL_SIZE = { width: 560, height: 620 };
 const MINI_SIZE = { width: 90, height: 90 };
 let cameraMode = false;
 let previousBounds = null;
@@ -137,7 +137,7 @@ ipcMain.handle("capture-screen", async () => {
 function createOverlay() {
   overlay = new BrowserWindow({
     width: 560,
-    height: 360,
+    height: 620,
     frame: false,
     transparent: true,
     resizable: false,

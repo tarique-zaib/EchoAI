@@ -364,6 +364,7 @@ window.electron.onCollapse((collapsed) => {
 });
 
 window.electron.onShareSafe((enabled) => {
+  document.body.classList.toggle("stealth", enabled);
   showToast(enabled ? "🛡 Share Safe ON" : "Share Safe OFF");
 });
 

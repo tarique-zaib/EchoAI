@@ -8,7 +8,7 @@ body {
 .card {
   width: calc(100% - 40px);
   margin: 20px;
-  padding: 22px;
+  padding: 22px 22px 86px;
   box-sizing: border-box;
   position: relative;
 
@@ -239,7 +239,7 @@ select {
 
   backdrop-filter: blur(12px);
 
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1.5;
 
@@ -630,67 +630,59 @@ select {
   display: flex;
   gap: 4px;
 
-  margin: 18px 0 24px;
-
+  margin: 20px 0 0;
   padding: 4px;
 
-  border-radius: 18px;
+  width: 100%;
+  box-sizing: border-box;
+
+  border-radius: 20px;
 
   background: rgba(255, 255, 255, 0.05);
-
   border: 1px solid rgba(255, 255, 255, 0.08);
 
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  position: relative;
+  z-index: 10;
 }
 
 .mode-btn {
   flex: 1;
+  min-width: 0;
 
-  height: 46px;
+  height: 48px;
 
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
 
   background: transparent;
 
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.78);
 
   font-size: 15px;
   font-weight: 700;
 
   cursor: pointer;
 
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.15s ease,
-    box-shadow 0.2s ease;
+  transition: 0.18s ease;
+}
+
+.mode-btn.active {
+  color: white;
+
+  background: linear-gradient(180deg, #4f8cff, #2563eb);
+
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
 }
 
 .mode-btn:hover {
   color: white;
   background: rgba(255, 255, 255, 0.05);
 }
-
-.mode-btn.active {
-  color: white;
-
-  background: linear-gradient(
-    180deg,
-    rgba(59, 130, 246, 0.95),
-    rgba(37, 99, 235, 0.88)
-  );
-
-  box-shadow:
-    0 6px 18px rgba(37, 99, 235, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-
-  transform: translateY(-1px);
-}
-
 /* ---------- Mini Mode: hide top bar completely ---------- */
 
 .mini-mode .drag-bar {
@@ -811,93 +803,98 @@ body.camera-mode .answer p {
 }
 /* ---------- Premium Resume Card ---------- */
 
-.profile-card{
-    position:relative;
+.profile-card {
+  position: relative;
 
-    margin:18px 0 22px;
-    padding:18px;
+  margin: 18px 0 22px;
+  padding: 18px;
 
-    border-radius:20px;
+  border-radius: 20px;
 
-    background:
-        linear-gradient(
-            180deg,
-            rgba(255,255,255,.05),
-            rgba(255,255,255,.02)
-        );
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.02)
+  );
 
-    border:1px dashed rgba(255,255,255,.15);
+  border: 1px dashed rgba(255, 255, 255, 0.15);
 
-    cursor:pointer;
+  cursor: pointer;
 
-    transition:
-        transform .18s ease,
-        border-color .18s ease,
-        background .18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
 }
 
-.profile-card:hover{
-    transform:translateY(-1px);
+.profile-card:hover {
+  transform: translateY(-1px);
 
-    border-color:rgba(59,130,246,.45);
+  border-color: rgba(59, 130, 246, 0.45);
 
-    background:
-        linear-gradient(
-            180deg,
-            rgba(59,130,246,.08),
-            rgba(255,255,255,.03)
-        );
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
 }
 
-.profile-card.drag-over{
-    border-color:#3b82f6;
+.profile-card.drag-over {
+  border-color: #3b82f6;
 
-    background:
-        linear-gradient(
-            180deg,
-            rgba(59,130,246,.15),
-            rgba(255,255,255,.05)
-        );
+  background: linear-gradient(
+    180deg,
+    rgba(59, 130, 246, 0.15),
+    rgba(255, 255, 255, 0.05)
+  );
 
-    box-shadow:
-        0 0 24px rgba(59,130,246,.18);
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.18);
 }
 
-.profile-content{
-    display:flex;
-    align-items:center;
-    gap:16px;
+.profile-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
-.profile-icon{
-    width:48px;
-    height:48px;
+.profile-icon {
+  width: 48px;
+  height: 48px;
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-    border-radius:14px;
+  border-radius: 14px;
 
-    background:rgba(255,255,255,.08);
+  background: rgba(255, 255, 255, 0.08);
 
-    font-size:22px;
+  font-size: 22px;
 }
 
-.profile-info{
-    display:flex;
-    flex-direction:column;
+.profile-info {
+  display: flex;
+  flex-direction: column;
 }
 
-.profile-info strong{
-    font-size:18px;
-    color:white;
+.profile-info strong {
+  font-size: 18px;
+  color: white;
 }
 
-.profile-info span{
-    margin-top:4px;
+.profile-info span {
+  margin-top: 4px;
 
-    color:rgba(255,255,255,.65);
+  color: rgba(255, 255, 255, 0.65);
 
-    font-size:14px;
+  font-size: 14px;
+}
+body.stealth .status {
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+body.stealth .card {
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(34, 197, 94, 0.18);
 }
