@@ -809,3 +809,95 @@ body.camera-mode .answer {
 body.camera-mode .answer p {
   margin: 0 0 12px;
 }
+/* ---------- Premium Resume Card ---------- */
+
+.profile-card{
+    position:relative;
+
+    margin:18px 0 22px;
+    padding:18px;
+
+    border-radius:20px;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255,255,255,.05),
+            rgba(255,255,255,.02)
+        );
+
+    border:1px dashed rgba(255,255,255,.15);
+
+    cursor:pointer;
+
+    transition:
+        transform .18s ease,
+        border-color .18s ease,
+        background .18s ease;
+}
+
+.profile-card:hover{
+    transform:translateY(-1px);
+
+    border-color:rgba(59,130,246,.45);
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(59,130,246,.08),
+            rgba(255,255,255,.03)
+        );
+}
+
+.profile-card.drag-over{
+    border-color:#3b82f6;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(59,130,246,.15),
+            rgba(255,255,255,.05)
+        );
+
+    box-shadow:
+        0 0 24px rgba(59,130,246,.18);
+}
+
+.profile-content{
+    display:flex;
+    align-items:center;
+    gap:16px;
+}
+
+.profile-icon{
+    width:48px;
+    height:48px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:14px;
+
+    background:rgba(255,255,255,.08);
+
+    font-size:22px;
+}
+
+.profile-info{
+    display:flex;
+    flex-direction:column;
+}
+
+.profile-info strong{
+    font-size:18px;
+    color:white;
+}
+
+.profile-info span{
+    margin-top:4px;
+
+    color:rgba(255,255,255,.65);
+
+    font-size:14px;
+}

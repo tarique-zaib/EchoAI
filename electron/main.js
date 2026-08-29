@@ -3,10 +3,11 @@ const {
   BrowserWindow,
   globalShortcut,
   ipcMain,
+  dialog,
 } = require("electron");
 const path = require("path");
 const { captureRegion } = require("./capture");
-
+const fs = require("fs");
 let overlay;
 
 const NORMAL_SIZE = { width: 560, height: 260 };
@@ -23,25 +24,25 @@ ipcMain.on("camera-mode", (_, enabled) => {
   const { width } = display.workAreaSize;
 
   if (enabled && !cameraMode) {
-  previousBounds = overlay.getBounds();
-  cameraMode = true;
+    previousBounds = overlay.getBounds();
+    cameraMode = true;
 
-  const CAMERA_WIDTH = 760;
-  const CAMERA_HEIGHT = 320;
+    const CAMERA_WIDTH = 760;
+    const CAMERA_HEIGHT = 320;
 
-  overlay.setBounds(
-    {
-      x: Math.round((width - CAMERA_WIDTH) / 2),
-      y: 16,
-      width: CAMERA_WIDTH,
-      height: CAMERA_HEIGHT,
-    },
-    true
-  );
-} else if (!enabled && cameraMode && previousBounds) {
-  cameraMode = false;
-  overlay.setBounds(previousBounds, true);
-}
+    overlay.setBounds(
+      {
+        x: Math.round((width - CAMERA_WIDTH) / 2),
+        y: 16,
+        width: CAMERA_WIDTH,
+        height: CAMERA_HEIGHT,
+      },
+      true,
+    );
+  } else if (!enabled && cameraMode && previousBounds) {
+    cameraMode = false;
+    overlay.setBounds(previousBounds, true);
+  }
 });
 
 // ---------------- Resize ----------------
@@ -68,6 +69,49 @@ ipcMain.on("overlay-drag", (_, { x, y }) => {
   overlay.setPosition(Math.round(x), Math.round(y), true);
 });
 
+ipcMain.handle("pick-resume", async () => {
+  if (!overlay || overlay.isDestroyed()) return null;
+
+  const result = await dialog.showOpenDialog(overlay, {
+    title: "Select Resume",
+    properties: ["openFile"],
+    filters: [{ name: "Resume", extensions: ["pdf", "docx"] }],
+  });
+
+  if (result.canceled) return null;
+
+  return result.filePaths[0];
+});
+
+ipcMain.handle("upload-resume", async (_, filePath) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([buffer]),
+      path.basename(filePath)
+    );
+
+    const res = await fetch("http://localhost:5153/api/resume/upload", {
+      method: "POST",
+      body: form
+    });
+
+    const data = await res.json();
+
+    if (!res.ok)
+      throw new Error(data.error || "Upload failed");
+
+    return data;
+  } catch (err) {
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+});
 
 // ---------------- Screen Capture ----------------
 
@@ -147,11 +191,7 @@ function createOverlay() {
     overlay.setContentProtection(shareSafe);
     overlay.webContents.send("share-safe", shareSafe);
 
-    console.log(
-      shareSafe
-        ? "🛡 Share Safe Enabled"
-        : "🛡 Share Safe Disabled"
-    );
+    console.log(shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled");
   });
 
   overlay.loadFile(path.join(__dirname, "overlay.html"));

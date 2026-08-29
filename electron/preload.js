@@ -5,7 +5,9 @@ contextBridge.exposeInMainWorld("electron", {
   resizeWindow: (w, h) => ipcRenderer.send("resize-window", { w, h }),
   dragWindow: (x, y) => ipcRenderer.send("overlay-drag", { x, y }),
   getWindowPosition: () => ipcRenderer.invoke("get-window-position"),
-
+  pickResume: () => ipcRenderer.invoke("pick-resume"),
+  uploadResume: (filePath) =>
+  ipcRenderer.invoke("upload-resume", filePath),
   // Screen Capture
   captureScreen: () => ipcRenderer.invoke("capture-screen"),
 

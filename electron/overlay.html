@@ -30,7 +30,18 @@
         <button id="systemMode" class="audio-pill active">🖥 System</button>
       </div>
 
-      <div class="profile">Loading profile...</div>
+      <div class="profile-card" id="profileCard">
+        <div class="profile-content" id="profileContent">
+          <div class="profile-icon">📄</div>
+
+          <div class="profile-info">
+            <strong>No Resume</strong>
+            <span>Click or drag a PDF/DOCX here</span>
+          </div>
+        </div>
+
+        <input id="resumeInput" type="file" accept=".pdf,.docx" hidden />
+      </div>
 
       <div class="answer-modes">
         <button id="modeQuick" class="mode-btn active">⚡ 30 Sec</button>

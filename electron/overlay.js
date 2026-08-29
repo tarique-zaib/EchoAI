@@ -3,6 +3,9 @@ const statusText = document.querySelector(".status-text");
 const question = document.querySelector(".question");
 const answerEl = document.querySelector(".answer");
 const answerContainer = document.querySelector(".answer-container");
+const profileCard = document.getElementById("profileCard");
+const profileContent = document.getElementById("profileContent");
+const resumeInput = document.getElementById("resumeInput");
 const API = "http://localhost:5153/api";
 
 const connection = new signalR.HubConnectionBuilder()
@@ -202,22 +205,59 @@ async function loadResumeStatus() {
     const data = await res.json();
 
     if (!data.loaded) {
-      statusText.textContent = "No Resume";
-      profileEl.innerHTML = "Upload Resume";
+      statusText.textContent = "Listening";
+
+      profileContent.innerHTML = `
+        <div class="profile-icon">📄</div>
+        <div class="profile-info">
+          <strong>No Resume</strong>
+          <span>Click or drag a PDF/DOCX here</span>
+        </div>
+      `;
       return;
     }
 
     statusText.textContent = "Resume Loaded";
-    profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
+
+    profileContent.innerHTML = `
+      <div class="profile-icon">✅</div>
+      <div class="profile-info">
+        <strong>${data.name}</strong>
+        <span>${data.years}+ Years • Resume Active</span>
+      </div>
+    `;
   } catch {
-    status.classList.remove("online");
-    status.classList.add("offline");
     statusText.textContent = "Offline";
-    profileEl.innerHTML = "Backend unavailable";
+
+    profileContent.innerHTML = `
+      <div class="profile-icon">⚠️</div>
+      <div class="profile-info">
+        <strong>Backend Offline</strong>
+        <span>Start the backend to load a resume.</span>
+      </div>
+    `;
   }
 }
 
 loadResumeStatus();
+
+async function uploadResume(filePath) {
+  if (!filePath) return;
+
+  showToast("Uploading resume...");
+
+  const result = await window.electron.uploadResume(filePath);
+
+  if (!result.success) {
+    showToast("Upload failed");
+    console.error(result.error);
+    return;
+  }
+
+  showToast("Resume uploaded");
+
+  loadResumeStatus();
+}
 
 // ---------- Load Audio Mode ----------
 
@@ -250,6 +290,35 @@ systemBtn?.addEventListener("click", async () => {
   } catch {
     showToast("Failed to switch");
   }
+});
+
+profileCard?.addEventListener("click", async () => {
+  const filePath = await window.electron.pickResume();
+  await uploadResume(filePath);
+});
+
+["dragenter", "dragover"].forEach((event) => {
+  profileCard?.addEventListener(event, (e) => {
+    e.preventDefault();
+    profileCard.classList.add("drag-over");
+  });
+});
+
+["dragleave", "drop"].forEach((event) => {
+  profileCard?.addEventListener(event, (e) => {
+    e.preventDefault();
+    profileCard.classList.remove("drag-over");
+  });
+});
+
+profileCard?.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  profileCard.classList.remove("drag-over");
+
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  await uploadResume(file.path);
 });
 
 // ---------- Resize ----------
@@ -307,7 +376,16 @@ connection.on("ReceiveStatus", (s) => {
 
 connection.on("ResumeUpdated", (data) => {
   statusText.textContent = "Resume Loaded";
-  profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years • Resume Active`;
+
+  profileContent.innerHTML = `
+    <div class="profile-icon">✅</div>
+    <div class="profile-info">
+      <strong>${data.name}</strong>
+      <span>${data.years}+ Years • Resume Active</span>
+    </div>
+  `;
+
+  showToast("Resume Loaded");
 });
 
 connection.on("ReceivePartialTranscript", (text) => {
