@@ -8,7 +8,10 @@
   <body>
     <div class="card">
       <div class="drag-bar">
-        <span class="drag-title">⋮⋮ EchoPrep AI</span>
+        <span class="drag-title">
+          <icon name="grid" color="secondary" />
+          EchoPrep AI
+        </span>
 
         <div class="drag-actions">
           <button id="cameraMode" title="Camera Mode">📷</button>
@@ -71,10 +74,11 @@
           <div class="camera-space"></div>
         </div>
       </div>
+      <!-- Floating Camera -->
+      <button id="capture" class="capture-btn" title="Capture Screen">
+        📷
+      </button>
     </div>
-
-    <!-- Floating Camera -->
-    <button id="capture" class="capture-btn" title="Capture Screen">📷</button>
 
     <script src="../node_modules/@microsoft/signalr/dist/browser/signalr.min.js"></script>
     <script src="../node_modules/marked/lib/marked.umd.js"></script>

@@ -34,6 +34,7 @@ const modeQuick = document.getElementById("modeQuick");
 const modeDetailed = document.getElementById("modeDetailed");
 const modeInterview = document.getElementById("modeInterview");
 const cameraModeBtn = document.getElementById("cameraMode");
+const card = document.querySelector(".card");
 
 let cameraMode = false;
 
@@ -209,6 +210,8 @@ async function loadResumeStatus() {
     statusText.textContent = "Resume Loaded";
     profileEl.innerHTML = `<strong>${data.name}</strong><br>${data.years}+ Years`;
   } catch {
+    status.classList.remove("online");
+    status.classList.add("offline");
     statusText.textContent = "Offline";
     profileEl.innerHTML = "Backend unavailable";
   }
@@ -299,6 +302,7 @@ window.electron.onShareSafe((enabled) => {
 
 connection.on("ReceiveStatus", (s) => {
   statusText.textContent = "🎙 " + s;
+  card.classList.remove("ai-active");
 });
 
 connection.on("ResumeUpdated", (data) => {
@@ -308,6 +312,7 @@ connection.on("ResumeUpdated", (data) => {
 
 connection.on("ReceivePartialTranscript", (text) => {
   question.textContent = text.replace(/^Explained\b/i, "Explain");
+  card.classList.add("ai-active");
   resizeOverlay();
 });
 
@@ -322,6 +327,7 @@ connection.on("ReceiveTranscript", (q) => {
   }
   fullAnswer = "";
   answerEl.innerHTML = "";
+  card.classList.add("ai-active");
   thinkingIndicator.classList.remove("hidden");
 
   resizeOverlay();
@@ -344,6 +350,7 @@ connection.on("ClearAnswer", () => {
 
 connection.on("VisionCompleted", () => {
   captureBtn.classList.remove("processing");
+  card.classList.remove("ai-active");
   captureBtn.classList.add("active");
   thinkingIndicator.classList.add("hidden");
   showToast("Explanation Ready");
@@ -352,6 +359,7 @@ connection.on("VisionCompleted", () => {
 connection.on("ReceiveAnswerChunk", (chunk) => {
   thinkingIndicator.classList.add("hidden");
   document.querySelector(".answer-panel").style.display = "block";
+  document.querySelector(".card").classList.remove("ai-active");
 
   fullAnswer += chunk;
 
@@ -371,6 +379,9 @@ connection
   .start()
   .then(async () => {
     console.log("Overlay connected");
+    status.classList.remove("offline");
+    status.classList.add("online");
+    document.querySelector(".card").classList.add("ai-active");
 
     const res = await fetch(`${API}/settings/answer-mode`);
     const data = await res.json();
