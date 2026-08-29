@@ -177,6 +177,9 @@ explainCapture?.addEventListener("click", async () => {
 
   thinkingIndicator.classList.remove("hidden");
 
+  question.textContent = "Analyzing screenshot...";
+  document.querySelector(".answer-panel").style.display = "none";
+
   showToast(`Analyzing (${answerMode})...`);
 
   try {
@@ -429,10 +432,17 @@ connection.on("ClearAnswer", () => {
 
 connection.on("VisionCompleted", () => {
   captureBtn.classList.remove("processing");
-  card.classList.remove("ai-active");
   captureBtn.classList.add("active");
+
   thinkingIndicator.classList.add("hidden");
+
+  question.textContent = "Screenshot Explanation";
+
+  document.querySelector(".answer-panel").style.display = "block";
+
   showToast("Explanation Ready");
+
+  resizeOverlay();
 });
 
 connection.on("ReceiveAnswerChunk", (chunk) => {

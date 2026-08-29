@@ -10,7 +10,7 @@ const { captureRegion } = require("./capture");
 const fs = require("fs");
 let overlay;
 
-const NORMAL_SIZE = { width: 560, height: 620 };
+const NORMAL_SIZE = { width: 560, height: 460 };
 const MINI_SIZE = { width: 90, height: 90 };
 let cameraMode = false;
 let previousBounds = null;
@@ -88,27 +88,22 @@ ipcMain.handle("upload-resume", async (_, filePath) => {
     const buffer = fs.readFileSync(filePath);
 
     const form = new FormData();
-    form.append(
-      "file",
-      new Blob([buffer]),
-      path.basename(filePath)
-    );
+    form.append("file", new Blob([buffer]), path.basename(filePath));
 
     const res = await fetch("http://localhost:5153/api/resume/upload", {
       method: "POST",
-      body: form
+      body: form,
     });
 
     const data = await res.json();
 
-    if (!res.ok)
-      throw new Error(data.error || "Upload failed");
+    if (!res.ok) throw new Error(data.error || "Upload failed");
 
     return data;
   } catch (err) {
     return {
       success: false,
-      error: err.message
+      error: err.message,
     };
   }
 });
@@ -136,8 +131,8 @@ ipcMain.handle("capture-screen", async () => {
 
 function createOverlay() {
   overlay = new BrowserWindow({
-    width: 560,
-    height: 620,
+    width: NORMAL_SIZE.width,
+    height: NORMAL_SIZE.height,
     frame: false,
     transparent: true,
     resizable: false,
