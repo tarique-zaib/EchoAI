@@ -4,18 +4,27 @@ const {
   globalShortcut,
   ipcMain,
   dialog,
+  screen,
 } = require("electron");
+
 const path = require("path");
-const { captureRegion } = require("./capture");
 const fs = require("fs");
+const { captureRegion } = require("./capture");
+
 let overlay;
+
+// Shared bounds
+let previousBounds = null;
+let previousNormalBounds = null;
 
 const NORMAL_SIZE = { width: 560, height: 460 };
 const MINI_SIZE = { width: 90, height: 90 };
-let cameraMode = false;
-let previousBounds = null;
 
-const { screen } = require("electron");
+let cameraMode = false;
+
+// -------------------------------------
+// Camera Mode
+// -------------------------------------
 
 ipcMain.on("camera-mode", (_, enabled) => {
   if (!overlay || overlay.isDestroyed()) return;
@@ -27,39 +36,53 @@ ipcMain.on("camera-mode", (_, enabled) => {
     previousBounds = overlay.getBounds();
     cameraMode = true;
 
-    const CAMERA_WIDTH = 760;
-    const CAMERA_HEIGHT = 320;
-
     overlay.setBounds(
       {
-        x: Math.round((width - CAMERA_WIDTH) / 2),
+        x: Math.round((width - 760) / 2),
         y: 16,
-        width: CAMERA_WIDTH,
-        height: CAMERA_HEIGHT,
+        width: 760,
+        height: 320,
       },
       true,
     );
-  } else if (!enabled && cameraMode && previousBounds) {
+  } else if (!enabled && cameraMode) {
     cameraMode = false;
-    overlay.setBounds(previousBounds, true);
+
+    overlay.setBounds(previousNormalBounds ?? previousBounds, true);
   }
 });
 
-// ---------------- Resize ----------------
+// -------------------------------------
+// Auto Resize
+// -------------------------------------
 
 ipcMain.on("resize-window", (_, { w, h }) => {
-  if (overlay && !overlay.isDestroyed()) {
-    overlay.setSize(w, h, true);
-  }
+  if (!overlay || overlay.isDestroyed() || cameraMode) return;
+
+  const display = screen.getDisplayMatching(overlay.getBounds());
+  const bounds = overlay.getBounds();
+
+  const maxHeight = display.workArea.height - 20;
+  const newHeight = Math.min(Math.round(h), maxHeight);
+
+  const maxY = display.workArea.y + display.workArea.height - newHeight;
+
+  overlay.setBounds({
+    x: bounds.x,
+    y: Math.min(Math.max(bounds.y, display.workArea.y), maxY),
+    width: Math.round(w),
+    height: newHeight,
+  });
 });
 
-// ---------------- Drag ----------------
+// -------------------------------------
+// Drag
+// -------------------------------------
 
 ipcMain.handle("get-window-position", () => {
   if (!overlay || overlay.isDestroyed()) return { x: 0, y: 0 };
 
   const [x, y] = overlay.getPosition();
-
   return { x, y };
 });
 
@@ -68,6 +91,10 @@ ipcMain.on("overlay-drag", (_, { x, y }) => {
 
   overlay.setPosition(Math.round(x), Math.round(y), true);
 });
+
+// -------------------------------------
+// Resume
+// -------------------------------------
 
 ipcMain.handle("pick-resume", async () => {
   if (!overlay || overlay.isDestroyed()) return null;
@@ -108,7 +135,9 @@ ipcMain.handle("upload-resume", async (_, filePath) => {
   }
 });
 
-// ---------------- Screen Capture ----------------
+// -------------------------------------
+// Screen Capture
+// -------------------------------------
 
 ipcMain.handle("capture-screen", async () => {
   if (!overlay || overlay.isDestroyed()) return null;
@@ -127,7 +156,9 @@ ipcMain.handle("capture-screen", async () => {
   }
 });
 
-// ---------------- Overlay ----------------
+// -------------------------------------
+// Overlay Window
+// -------------------------------------
 
 function createOverlay() {
   overlay = new BrowserWindow({
@@ -135,12 +166,13 @@ function createOverlay() {
     height: NORMAL_SIZE.height,
     frame: false,
     transparent: true,
-    resizable: false,
+    resizable: true,
     movable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: true,
     backgroundColor: "#00000000",
+
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -152,7 +184,8 @@ function createOverlay() {
   let collapsed = false;
   let shareSafe = false;
 
-  // Ghost Mode
+  // ---------------- Ghost Mode ----------------
+
   globalShortcut.register("CommandOrControl+Shift+O", () => {
     if (!overlay || overlay.isDestroyed()) return;
 
@@ -162,22 +195,29 @@ function createOverlay() {
     overlay.webContents.send("ghost-mode", ghostMode);
   });
 
-  // Mini Mode
+  // ---------------- Mini Mode ----------------
+
   globalShortcut.register("Escape", () => {
     if (!overlay || overlay.isDestroyed()) return;
 
     collapsed = !collapsed;
 
     if (collapsed) {
+      previousNormalBounds = overlay.getBounds();
+
       overlay.setSize(MINI_SIZE.width, MINI_SIZE.height, true);
       overlay.webContents.send("collapse", true);
     } else {
-      overlay.setSize(NORMAL_SIZE.width, NORMAL_SIZE.height, true);
+      if (previousNormalBounds) {
+        overlay.setBounds(previousNormalBounds, true);
+      }
+
       overlay.webContents.send("collapse", false);
     }
   });
 
-  // Share Safe
+  // ---------------- Share Safe ----------------
+
   globalShortcut.register("CommandOrControl+Shift+S", () => {
     if (!overlay || overlay.isDestroyed()) return;
 
@@ -186,11 +226,17 @@ function createOverlay() {
     overlay.setContentProtection(shareSafe);
     overlay.webContents.send("share-safe", shareSafe);
 
-    console.log(shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled");
+    console.log(
+      shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled",
+    );
   });
 
   overlay.loadFile(path.join(__dirname, "overlay.html"));
 }
+
+// -------------------------------------
+// App Lifecycle
+// -------------------------------------
 
 app.whenReady().then(createOverlay);
 
@@ -199,5 +245,7 @@ app.on("will-quit", () => {
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+  if (process.platform !== "darwin") {
+    app.quit();
+  }
 });

@@ -19,6 +19,7 @@ const OVERLAY_WIDTH = 560;
 let teleWords = [];
 let teleIndex = 0;
 let teleTimer = null;
+let hasFinalQuestion = false;
 
 // ---------- UI Elements ----------
 
@@ -325,18 +326,33 @@ profileCard?.addEventListener("drop", async (e) => {
 });
 
 // ---------- Resize ----------
+let lastHeight = 0;
 
 function resizeOverlay() {
   if (cameraMode) return;
 
-  const card = document.querySelector(".card");
-  if (!card) return;
+  requestAnimationFrame(() => {
+    const answer = document.querySelector(".answer");
+    const panel = document.querySelector(".answer-panel");
+    if (!answer || !panel) return;
 
-  const height = Math.min(Math.max(card.scrollHeight + 40, 260), 620);
+    const displayMax = window.screen.availHeight - 24;
+    const desiredHeight = panel.offsetTop + answer.scrollHeight + 140;
 
-  window.electron.resizeWindow(OVERLAY_WIDTH, height);
+    // Grow window until screen limit
+    const finalHeight = Math.min(desiredHeight, displayMax);
+
+    if (finalHeight !== lastHeight) {
+      lastHeight = finalHeight;
+      window.electron.resizeWindow(OVERLAY_WIDTH, finalHeight);
+    }
+
+    // After reaching max height, make only the answer scroll
+    const available = finalHeight - panel.offsetTop - 40;
+    answerContainer.style.maxHeight = `${available}px`;
+    answerContainer.style.overflowY = "auto";
+  });
 }
-
 // ---------- Toast ----------
 
 function showToast(message) {
@@ -376,6 +392,10 @@ window.electron.onShareSafe((enabled) => {
 connection.on("ReceiveStatus", (s) => {
   statusText.textContent = "🎙 " + s;
   card.classList.remove("ai-active");
+
+  if (s.toLowerCase().includes("listening")) {
+    hasFinalQuestion = false;
+  }
 });
 
 connection.on("ResumeUpdated", (data) => {
@@ -393,6 +413,8 @@ connection.on("ResumeUpdated", (data) => {
 });
 
 connection.on("ReceivePartialTranscript", (text) => {
+  if (hasFinalQuestion) return;
+
   question.textContent = text.replace(/^Explained\b/i, "Explain");
   card.classList.add("ai-active");
   resizeOverlay();
@@ -400,6 +422,7 @@ connection.on("ReceivePartialTranscript", (text) => {
 
 connection.on("ReceiveTranscript", (q) => {
   question.textContent = q.replace(/^Explained\b/i, "Explain");
+  hasFinalQuestion = true;
   teleIndex = 0;
   teleWords = [];
 
@@ -417,6 +440,7 @@ connection.on("ReceiveTranscript", (q) => {
 
 connection.on("ClearAnswer", () => {
   fullAnswer = "";
+  hasFinalQuestion = false;
   teleIndex = 0;
   teleWords = [];
 
@@ -448,28 +472,27 @@ connection.on("VisionCompleted", () => {
 connection.on("ReceiveAnswerChunk", (chunk) => {
   thinkingIndicator.classList.add("hidden");
   document.querySelector(".answer-panel").style.display = "block";
-  document.querySelector(".card").classList.remove("ai-active");
+  card.classList.remove("ai-active");
 
   fullAnswer += chunk;
-
-  // Always render the FULL answer
   answerEl.innerHTML = marked.parse(fullAnswer);
 
-  // Auto-scroll only in Normal Mode
   if (!cameraMode) {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resizeOverlay);
+    });
+  } else {
     answerContainer.scrollTop = answerContainer.scrollHeight;
-    resizeOverlay();
   }
 });
 
 // ---------- Connect ----------
-
 connection
   .start()
   .then(async () => {
     console.log("Overlay connected");
-    status.classList.remove("offline");
-    status.classList.add("online");
+    document.querySelector(".status").classList.remove("offline");
+    document.querySelector(".status").classList.add("online");
     document.querySelector(".card").classList.add("ai-active");
 
     const res = await fetch(`${API}/settings/answer-mode`);

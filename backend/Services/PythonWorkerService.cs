@@ -9,6 +9,7 @@ namespace backend.Services;
 public class PythonWorkerService
 {
     private string _lastPartialQuestion = "";
+    private string _latestPartial = "";
     private DateTime _lastPartialTime = DateTime.MinValue;
     private readonly IHubContext<InterviewHub> _hub;
     private readonly AIAnswerService _ai;
@@ -223,6 +224,7 @@ public class PythonWorkerService
                 {
                     _lastPartialQuestion = partial;
                     _lastPartialTime = now;
+                    _latestPartial = partial;
 
                     await _hub.Clients.All.SendAsync("ReceivePartialTranscript", partial);
                 }
@@ -281,6 +283,20 @@ public class PythonWorkerService
 
             // NEW: Only interviewer-like questions trigger AI
             var isQuestion = IsLikelyInterviewQuestion(line);
+            // Whisper's final transcript can lose the beginning.
+            // If the latest partial already contains this final transcript,
+            // use the richer partial instead.
+            if (!string.IsNullOrWhiteSpace(_latestPartial))
+            {
+                var finalText = line.Trim();
+                var partialText = _latestPartial.Trim();
+
+                if (partialText.Length > finalText.Length &&
+                    partialText.EndsWith(finalText, StringComparison.OrdinalIgnoreCase))
+                {
+                    line = partialText;
+                }
+            }
             var isContinuation = IsContinuation(_lastTranscript, line);
 
             Console.WriteLine($"QUESTION DETECTOR: {isQuestion} | CONT: {isContinuation} | {line}");
