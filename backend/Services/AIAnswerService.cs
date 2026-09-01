@@ -10,6 +10,7 @@ public class AIAnswerService
     private readonly HttpClient _http;
     private readonly ResumeMemoryService _memory;
     private readonly PromptBuilderService _promptBuilder;
+    private readonly InterviewMemoryService _interviewMemory;
 
     private CancellationTokenSource? _currentGenerationCts;
     private readonly object _generationLock = new();
@@ -17,13 +18,14 @@ public class AIAnswerService
     public AIAnswerService(
         IHttpClientFactory factory,
         ResumeMemoryService memory,
-        PromptBuilderService promptBuilder)
+        PromptBuilderService promptBuilder, InterviewMemoryService interviewMemoryService)
     {
         _http = factory.CreateClient();
         _http.BaseAddress = new Uri("http://127.0.0.1:11434");
 
         _memory = memory;
         _promptBuilder = promptBuilder;
+        _interviewMemory = interviewMemoryService;
     }
 
     public async IAsyncEnumerable<string> GenerateAnswerStream(
@@ -169,7 +171,7 @@ Keep it concise and conversational.
         using var stream = await response.Content.ReadAsStreamAsync(token);
         using var reader = new StreamReader(stream);
         bool firstToken = true;
-
+        var fullAnswer = new StringBuilder();
         while (true)
         {
             if (token.IsCancellationRequested)
@@ -209,11 +211,22 @@ Keep it concise and conversational.
                     firstToken = false;
                 }
 
+                fullAnswer.Append(chunk);
                 yield return chunk;
             }
 
             if (done)
+            {
+                var answer = fullAnswer.ToString().Trim();
+
+                if (!string.IsNullOrWhiteSpace(answer))
+                {
+                    _interviewMemory.Add(question, answer);
+                    Console.WriteLine("🧠 Interview memory updated.");
+                }
+
                 break;
+            }
         }
     }
 }
