@@ -137,16 +137,34 @@ async function startCapture() {
     }
 
     latestCapturePath = file;
-
     captureBtn.classList.add("active");
 
-    captureImage.onload = resizeOverlay;
+    // Show preview before loading image
+    capturePreview.classList.remove("hidden");
+    document.querySelector(".answer-panel").style.display = "none";
+    answerContainer.style.maxHeight = "";
+    window.electron.resizeWindow(560, 820);
+
+    captureImage.onload = () => {
+      requestAnimationFrame(() => {
+        const preview = document.getElementById("capturePreview");
+
+        const targetHeight = Math.min(
+          preview.offsetTop + preview.scrollHeight + 40,
+          window.screen.availHeight - 24,
+        );
+
+        console.log("CAPTURE HEIGHT:", targetHeight);
+
+        window.electron.resizeWindow(560, targetHeight);
+      });
+    };
+
     captureImage.src = `${file}?t=${Date.now()}`;
 
-    capturePreview.classList.remove("hidden");
-
     showToast("📷 Screenshot Captured");
-  } catch {
+  } catch (err) {
+    console.error(err);
     showToast("Capture failed");
   }
 }
@@ -332,24 +350,26 @@ function resizeOverlay() {
   if (cameraMode) return;
 
   requestAnimationFrame(() => {
-    const answer = document.querySelector(".answer");
+    const card = document.querySelector(".card");
     const panel = document.querySelector(".answer-panel");
-    if (!answer || !panel) return;
+
+    if (!card || !panel) return;
 
     const displayMax = window.screen.availHeight - 24;
-    const desiredHeight = panel.offsetTop + answer.scrollHeight + 140;
 
-    // Grow window until screen limit
-    const finalHeight = Math.min(desiredHeight, displayMax);
+    // Measure the WHOLE card, including capture footer
+    const finalHeight = Math.min(
+      Math.ceil(card.scrollHeight + 40),
+      displayMax
+    );
 
     if (finalHeight !== lastHeight) {
       lastHeight = finalHeight;
       window.electron.resizeWindow(OVERLAY_WIDTH, finalHeight);
     }
 
-    // After reaching max height, make only the answer scroll
     const available = finalHeight - panel.offsetTop - 40;
-    answerContainer.style.maxHeight = `${available}px`;
+    answerContainer.style.maxHeight = `${Math.max(120, available)}px`;
     answerContainer.style.overflowY = "auto";
   });
 }
