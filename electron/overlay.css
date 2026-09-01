@@ -9,6 +9,15 @@ body {
   font-family: "Segoe UI", sans-serif;
 }
 
+.card::-webkit-scrollbar {
+  width: 5px;
+}
+
+.card::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+}
+
 .card {
   width: calc(100% - 40px);
   margin: 20px;
@@ -35,7 +44,9 @@ body {
 
   color: white;
 
-  overflow: hidden;
+  height: calc(100vh - 40px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .card::before {
@@ -142,7 +153,9 @@ select {
   -webkit-app-region: no-drag;
 }
 
-.mini-mode .drag-bar { display: none !important; }
+.mini-mode .drag-bar {
+  display: none !important;
+}
 
 .mini-mode .card {
   width: 70px !important;
@@ -232,7 +245,8 @@ select {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.8;
   }
@@ -316,14 +330,16 @@ select {
 /* ---------- Capture Preview ---------- */
 
 .capture-preview {
-  margin-top: 18px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(16, 22, 34, 0.38);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .capture-preview.hidden {
@@ -348,17 +364,19 @@ select {
 
 .capture-preview img {
   width: 100%;
-  max-height: 130px;
-  object-fit: cover;
-  border-radius: 12px;
+  height: 160px;
+  object-fit: contain;
   display: block;
-  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .capture-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .capture-actions {
@@ -389,39 +407,39 @@ select {
 }
 
 .camera-space {
-  width: 84px;
+  width: 0px;
   flex-shrink: 0;
 }
 
 /* ---------- Floating Capture Button ---------- */
 
-.capture-btn{
-    position:absolute;
-    right:22px;
-    bottom:22px;
+.capture-btn {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
 
-    width:64px;
-    height:64px;
+  width: 64px;
+  height: 64px;
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-    border:none;
-    border-radius:50%;
+  border: none;
+  border-radius: 50%;
 
-    background:linear-gradient(180deg,#4f8cff,#2563eb);
-    color:#fff;
-    font-size:26px;
+  background: linear-gradient(180deg, #4f8cff, #2563eb);
+  color: #fff;
+  font-size: 26px;
 
-    box-shadow:0 12px 30px rgba(37,99,235,.45);
+  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.45);
 
-    z-index:9999;
+  z-index: 9999;
 
-    cursor:pointer;
-    pointer-events:auto;
+  cursor: pointer;
+  pointer-events: auto;
 
-    -webkit-app-region:no-drag; /* THIS fixes the click */
+  -webkit-app-region: no-drag; /* THIS fixes the click */
 }
 
 .capture-btn:hover {
@@ -965,10 +983,10 @@ body.mini-mode .card {
   justify-content: center;
 
   background: rgba(20, 30, 50, 0.55);
-  border: 1px solid rgba(255,255,255,.12);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    0 0 24px rgba(57,229,140,.18),
-    inset 0 1px 0 rgba(255,255,255,.06);
+    0 0 24px rgba(57, 229, 140, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Hide EVERYTHING except header */
@@ -1017,7 +1035,7 @@ body.mini-mode .dot {
   height: 18px;
   border-radius: 50%;
   background: #39e58c;
-  box-shadow: 0 0 18px rgba(57,229,140,.9);
+  box-shadow: 0 0 18px rgba(57, 229, 140, 0.9);
   animation: miniPulse 1.2s ease-in-out infinite;
 }
 
@@ -1026,16 +1044,29 @@ body.mini-mode .dot::after {
   position: absolute;
   inset: -8px;
   border-radius: 50%;
-  border: 2px solid rgba(57,229,140,.45);
+  border: 2px solid rgba(57, 229, 140, 0.45);
   animation: miniRipple 1.2s ease-out infinite;
 }
 
 @keyframes miniPulse {
-  0%,100% { transform: scale(1); opacity: .7; }
-  50% { transform: scale(1.35); opacity: 1; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
 }
 
 @keyframes miniRipple {
-  0% { transform: scale(.8); opacity: .8; }
-  100% { transform: scale(1.8); opacity: 0; }
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
 }
