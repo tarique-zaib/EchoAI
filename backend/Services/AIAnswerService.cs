@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using backend.Models;
 
@@ -48,75 +49,9 @@ public class AIAnswerService
 
         ResumeProfile? profile = _memory.Get();
 
+        question = CleanQuestion(question);
+
         var prompt = _promptBuilder.Build(question, profile, mode);
-
-        prompt += mode.ToLower() switch
-        {
-            "quick" => """
-
-================ QUICK MODE ================
-
-You are the interview candidate.
-
-Rules:
-- Speak naturally.
-- Maximum 70 words.
-- No unnecessary introduction.
-
-Output exactly:
-
-## 30-Second Answer
-
-============================================
-
-""",
-
-            "detailed" => """
-
-================ DETAILED MODE ================
-
-Explain like a senior engineer teaching the topic.
-
-Output exactly:
-
-## Summary
-
-## Detailed Explanation
-
-## Practical Example
-
-## Best Practice
-
-Keep it under 220 words.
-
-===============================================
-
-""",
-
-            "interview" => """
-
-================ INTERVIEW MODE ================
-
-Answer exactly as if speaking to the interviewer.
-
-Output exactly:
-
-## Interview Answer
-
-## Practical Example
-
-## Likely Follow-up
-
-## Interview Tip
-
-Keep it concise and conversational.
-
-===============================================
-
-""",
-
-            _ => ""
-        };
 
         Console.WriteLine($"\n=== OLLAMA MODE: {mode.ToUpper()} ===");
         Console.WriteLine(prompt[..Math.Min(prompt.Length, 2500)]);
@@ -143,10 +78,10 @@ Keep it concise and conversational.
                 {
                     "quick" => 120,
                     "detailed" => 480,
-                    "interview" => 380,
+                    "interview" => 180,
                     _ => 250
                 },
-                num_ctx = 4096
+                num_ctx = 2048
             }
         };
 
@@ -171,6 +106,7 @@ Keep it concise and conversational.
         using var stream = await response.Content.ReadAsStreamAsync(token);
         using var reader = new StreamReader(stream);
         bool firstToken = true;
+        bool completedSuccessfully = false;
         var fullAnswer = new StringBuilder();
         while (true)
         {
@@ -214,12 +150,18 @@ Keep it concise and conversational.
                 fullAnswer.Append(chunk);
                 yield return chunk;
             }
-
             if (done)
             {
+                completedSuccessfully = true;
+
                 var answer = fullAnswer.ToString().Trim();
 
-                if (!string.IsNullOrWhiteSpace(answer))
+                answer = Regex.Replace(answer, @"^##.*$", "", RegexOptions.Multiline);
+                answer = Regex.Replace(answer, @"\n{3,}", "\n\n").Trim();
+
+                if (completedSuccessfully &&
+                    !token.IsCancellationRequested &&
+                    !string.IsNullOrWhiteSpace(answer))
                 {
                     _interviewMemory.Add(question, answer);
                     Console.WriteLine("🧠 Interview memory updated.");
@@ -228,5 +170,17 @@ Keep it concise and conversational.
                 break;
             }
         }
+    }
+    private static string CleanQuestion(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question))
+            return question;
+
+        question = Regex.Replace(
+            question,
+            @"(?is)^current interview context:.*?current question:\s*",
+            "");
+
+        return question.Trim();
     }
 }
