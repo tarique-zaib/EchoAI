@@ -98,6 +98,7 @@ Rules:
             _ => "Answer naturally."
         };
         var intent = DetectIntent(question);
+        var includeResume = NeedsResumeContext(intent);
 
         var intentInstruction = intent switch
         {
@@ -167,48 +168,51 @@ and production considerations.
         sb.AppendLine("- Don't force Azure, Angular, React Native, or .NET unless relevant.");
         sb.AppendLine();
 
-        sb.AppendLine("Candidate Summary:");
-        sb.AppendLine(profile.Name);
-        sb.AppendLine($"{profile.ExperienceYears}+ years experience");
-        sb.AppendLine();
-
-        sb.AppendLine("Relevant Resume Evidence:");
-
-        foreach (var job in relevantJobs)
+        if (includeResume)
         {
-            sb.AppendLine($"Role: {job.Title}");
-            sb.AppendLine($"Company: {job.Company}");
-            sb.AppendLine($"Duration: {job.Duration}");
+            sb.AppendLine("Candidate Summary:");
+            sb.AppendLine(profile.Name);
+            sb.AppendLine($"{profile.ExperienceYears}+ years experience");
+            sb.AppendLine();
 
-            if (!string.IsNullOrWhiteSpace(job.Description))
+            sb.AppendLine("Relevant Resume Evidence:");
+
+            foreach (var job in relevantJobs)
             {
-                foreach (var line in job.Description
-                    .Split('\n', StringSplitOptions.RemoveEmptyEntries)
-                    .Take(2))
+                sb.AppendLine($"Role: {job.Title}");
+                sb.AppendLine($"Company: {job.Company}");
+                sb.AppendLine($"Duration: {job.Duration}");
+
+                if (!string.IsNullOrWhiteSpace(job.Description))
                 {
-                    sb.AppendLine($"- {line.Trim()}");
+                    foreach (var line in job.Description
+                        .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                        .Take(2))
+                    {
+                        sb.AppendLine($"- {line.Trim()}");
+                    }
                 }
+
+                if (job.Projects.Any())
+                {
+                    var matchingProject = job.Projects.FirstOrDefault(p =>
+                        keywords.Any(k => p.Contains(k, StringComparison.OrdinalIgnoreCase)));
+
+                    if (!string.IsNullOrWhiteSpace(matchingProject))
+                    {
+                        sb.AppendLine($"Project: {matchingProject}");
+                    }
+                }
+
+                sb.AppendLine();
             }
 
-            if (job.Projects.Any())
+            if (relevantSkills.Count >= 2)
             {
-                var matchingProject = job.Projects.FirstOrDefault(p =>
-                    keywords.Any(k => p.Contains(k, StringComparison.OrdinalIgnoreCase)));
-
-                if (!string.IsNullOrWhiteSpace(matchingProject))
-                {
-                    sb.AppendLine($"Project: {matchingProject}");
-                }
+                sb.AppendLine("Relevant Skills:");
+                sb.AppendLine(string.Join(", ", relevantSkills));
+                sb.AppendLine();
             }
-
-            sb.AppendLine();
-        }
-
-        if (relevantSkills.Count >= 2)
-        {
-            sb.AppendLine("Relevant Skills:");
-            sb.AppendLine(string.Join(", ", relevantSkills));
-            sb.AppendLine();
         }
 
         var history = _memory.GetHistory();
@@ -271,6 +275,15 @@ and production considerations.
 
         return score;
     }
+
+    private static bool NeedsResumeContext(string intent)
+    {
+        return intent is "introduction"
+            or "experience"
+            or "behavioral"
+            or "system";
+    }
+
     private static string BuildGeneric(string question, string mode)
     {
         var modeInstruction = mode.ToLower() switch

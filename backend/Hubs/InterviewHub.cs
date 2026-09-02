@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-
+using System.Text;
 namespace backend.Hubs;
 
 public class InterviewHub : Hub

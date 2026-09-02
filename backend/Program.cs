@@ -6,7 +6,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Register HttpClientFactory
 builder.Services.AddHttpClient();
-
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 100;
+});
 // Services
 builder.Services.AddSignalR();
 builder.Services.AddEndpointsApiExplorer();
@@ -20,6 +23,7 @@ builder.Services.AddSingleton<PromptBuilderService>();
 builder.Services.AddSingleton<VisionService>();
 builder.Services.AddSingleton<AudioControllerService>();
 builder.Services.AddSingleton<InterviewMemoryService>();
+builder.Services.AddHostedService<OllamaWarmupService>();
 builder.Services.AddControllers();
 
 builder.Services.AddCors(options =>
@@ -52,39 +56,6 @@ app.MapGet("/", () => new
 
 app.MapControllers();
 app.MapHub<InterviewHub>("/interviewHub");
-
-
-// ------------------------------------
-// Warm Ollama on startup
-// ------------------------------------
-try
-{
-    using var scope = app.Services.CreateScope();
-    var factory = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
-
-    var client = factory.CreateClient();
-    client.BaseAddress = new Uri("http://127.0.0.1:11434");
-
-    await client.PostAsync(
-        "/api/generate",
-        new StringContent(
-            """
-            {
-              "model":"qwen2.5:3b",
-              "prompt":"ready",
-              "stream":false,
-              "keep_alive":"30m"
-            }
-            """,
-            Encoding.UTF8,
-            "application/json"));
-
-    Console.WriteLine("🔥 Ollama warmed up.");
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"⚠️ Ollama warm-up failed: {ex.Message}");
-}
 
 
 // ------------------------------------

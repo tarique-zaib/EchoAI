@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 using backend.Models;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace backend.Services;
 
@@ -12,6 +13,7 @@ public class AIAnswerService
     private readonly ResumeMemoryService _memory;
     private readonly PromptBuilderService _promptBuilder;
     private readonly InterviewMemoryService _interviewMemory;
+    private readonly IMemoryCache _cache;
 
     private CancellationTokenSource? _currentGenerationCts;
     private readonly object _generationLock = new();
@@ -19,7 +21,8 @@ public class AIAnswerService
     public AIAnswerService(
         IHttpClientFactory factory,
         ResumeMemoryService memory,
-        PromptBuilderService promptBuilder, InterviewMemoryService interviewMemoryService)
+        PromptBuilderService promptBuilder, InterviewMemoryService interviewMemoryService,
+        IMemoryCache cache)
     {
         _http = factory.CreateClient();
         _http.BaseAddress = new Uri("http://127.0.0.1:11434");
@@ -27,6 +30,7 @@ public class AIAnswerService
         _memory = memory;
         _promptBuilder = promptBuilder;
         _interviewMemory = interviewMemoryService;
+        _cache = cache;
     }
 
     public async IAsyncEnumerable<string> GenerateAnswerStream(
@@ -51,10 +55,21 @@ public class AIAnswerService
 
         question = CleanQuestion(question);
 
+        var cacheKey = $"{mode}:{question.Trim().ToLowerInvariant()}";
+
+        if (_cache.TryGetValue(cacheKey, out string? cachedAnswer))
+        {
+            Console.WriteLine("⚡ Cache hit.");
+
+            yield return cachedAnswer!;
+            yield break;
+        }
+
         var prompt = _promptBuilder.Build(question, profile, mode);
 
         Console.WriteLine($"\n=== OLLAMA MODE: {mode.ToUpper()} ===");
-        Console.WriteLine(prompt[..Math.Min(prompt.Length, 2500)]);
+        Console.WriteLine($"Question: {question}");
+        Console.WriteLine($"Prompt size: {prompt.Length} characters");
         Console.WriteLine("=====================================\n");
 
         var payload = new
@@ -108,6 +123,8 @@ public class AIAnswerService
         bool firstToken = true;
         bool completedSuccessfully = false;
         var fullAnswer = new StringBuilder();
+        var streamBuffer = new StringBuilder();
+        var flushTimer = System.Diagnostics.Stopwatch.StartNew();
         while (true)
         {
             if (token.IsCancellationRequested)
@@ -148,10 +165,22 @@ public class AIAnswerService
                 }
 
                 fullAnswer.Append(chunk);
-                yield return chunk;
+                streamBuffer.Append(chunk);
+
+                if (flushTimer.ElapsedMilliseconds >= 35)
+                {
+                    yield return streamBuffer.ToString();
+                    streamBuffer.Clear();
+                    flushTimer.Restart();
+                }
             }
             if (done)
             {
+                if (streamBuffer.Length > 0)
+                {
+                    yield return streamBuffer.ToString();
+                    streamBuffer.Clear();
+                }
                 completedSuccessfully = true;
 
                 var answer = fullAnswer.ToString().Trim();
@@ -165,6 +194,19 @@ public class AIAnswerService
                 {
                     _interviewMemory.Add(question, answer);
                     Console.WriteLine("🧠 Interview memory updated.");
+                    _cache.Set(
+    cacheKey,
+    answer,
+    new MemoryCacheEntryOptions
+    {
+        AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1),
+        SlidingExpiration = TimeSpan.FromMinutes(30),
+        Size = 1
+    });
+
+                    Console.WriteLine("⚡ Answer cached.");
+                    Console.WriteLine($"✅ Total generation: {sw.ElapsedMilliseconds} ms");
+
                 }
 
                 break;
