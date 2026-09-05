@@ -116,6 +116,33 @@ function updateAudioMode(mode) {
     mode === "headphone" ? "You Speaking" : "Interview Listening";
 }
 
+let resizeScheduled = false;
+
+function autoExpandCameraWindow() {
+  if (!cameraMode || resizeScheduled) return;
+
+  resizeScheduled = true;
+
+  requestAnimationFrame(() => {
+    resizeScheduled = false;
+
+    const card = document.querySelector(".card");
+    const panel = document.querySelector(".answer-panel");
+
+    if (!card || !panel) return;
+
+    const targetHeight = Math.min(Math.ceil(card.scrollHeight + 32), 820);
+
+    // Grow the Electron window
+    window.electron.resizeWindow(760, targetHeight);
+
+    // Grow the answer area too
+    const available = targetHeight - panel.offsetTop - 24;
+    answerContainer.style.maxHeight = `${Math.max(available, 200)}px`;
+    answerContainer.style.overflowY = "auto";
+  });
+}
+
 // ---------- Screen Capture ----------
 
 async function startCapture() {
@@ -175,6 +202,13 @@ cameraModeBtn?.addEventListener("click", () => {
   document.body.classList.toggle("camera-mode", cameraMode);
 
   window.electron.cameraMode(cameraMode);
+
+  if (cameraMode) {
+    answerContainer.style.maxHeight = "none";
+    answerContainer.style.overflowY = "visible";
+
+    requestAnimationFrame(autoExpandCameraWindow);
+  }
 
   showToast(cameraMode ? "📷 Camera Mode" : "Normal Mode");
 });
@@ -358,10 +392,7 @@ function resizeOverlay() {
     const displayMax = window.screen.availHeight - 24;
 
     // Measure the WHOLE card, including capture footer
-    const finalHeight = Math.min(
-      Math.ceil(card.scrollHeight + 40),
-      displayMax
-    );
+    const finalHeight = Math.min(Math.ceil(card.scrollHeight + 40), displayMax);
 
     if (finalHeight !== lastHeight) {
       lastHeight = finalHeight;
@@ -494,14 +525,17 @@ connection.on("ReceiveAnswerChunk", (chunk) => {
   document.querySelector(".answer-panel").style.display = "block";
   card.classList.remove("ai-active");
 
+  // Actually append the streamed text
   fullAnswer += chunk;
   answerEl.innerHTML = marked.parse(fullAnswer);
 
-  if (!cameraMode) {
+  if (cameraMode) {
+    autoExpandCameraWindow();
+  } else {
     requestAnimationFrame(() => {
       requestAnimationFrame(resizeOverlay);
     });
-  } else {
+
     answerContainer.scrollTop = answerContainer.scrollHeight;
   }
 });

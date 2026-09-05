@@ -20,6 +20,10 @@ let previousNormalBounds = null;
 const NORMAL_SIZE = { width: 560, height: 460 };
 const MINI_SIZE = { width: 90, height: 90 };
 
+const CAMERA_WIDTH = 760;
+const CAMERA_MIN_HEIGHT = 320;
+const CAMERA_MAX_HEIGHT = 820; // grows until this
+
 let cameraMode = false;
 
 // -------------------------------------
@@ -38,10 +42,10 @@ ipcMain.on("camera-mode", (_, enabled) => {
 
     overlay.setBounds(
       {
-        x: Math.round((width - 760) / 2),
+        x: Math.round((width - CAMERA_WIDTH) / 2),
         y: 16,
-        width: 760,
-        height: 320,
+        width: CAMERA_WIDTH,
+        height: CAMERA_MIN_HEIGHT,
       },
       true,
     );
@@ -57,22 +61,46 @@ ipcMain.on("camera-mode", (_, enabled) => {
 // -------------------------------------
 
 ipcMain.on("resize-window", (_, { w, h }) => {
-  if (!overlay || overlay.isDestroyed() || cameraMode) return;
+  if (!overlay || overlay.isDestroyed()) return;
 
   const display = screen.getDisplayMatching(overlay.getBounds());
   const bounds = overlay.getBounds();
 
+  // Camera mode: grow downward from the top
+  if (cameraMode) {
+    const newHeight = Math.min(
+      Math.max(Math.round(h), CAMERA_MIN_HEIGHT),
+      CAMERA_MAX_HEIGHT,
+    );
+
+    overlay.setBounds(
+      {
+        x: bounds.x,
+        y: bounds.y, // keep camera fixed
+        width: CAMERA_WIDTH,
+        height: newHeight,
+      },
+      true,
+    );
+
+    return;
+  }
+
+  // Normal mode (existing behavior)
   const maxHeight = display.workArea.height - 20;
   const newHeight = Math.min(Math.round(h), maxHeight);
 
   const maxY = display.workArea.y + display.workArea.height - newHeight;
 
-  overlay.setBounds({
-    x: bounds.x,
-    y: Math.min(Math.max(bounds.y, display.workArea.y), maxY),
-    width: Math.round(w),
-    height: newHeight,
-  });
+  overlay.setBounds(
+    {
+      x: bounds.x,
+      y: Math.min(Math.max(bounds.y, display.workArea.y), maxY),
+      width: Math.round(w),
+      height: newHeight,
+    },
+    true,
+  );
 });
 
 // -------------------------------------
@@ -226,9 +254,7 @@ function createOverlay() {
     overlay.setContentProtection(shareSafe);
     overlay.webContents.send("share-safe", shareSafe);
 
-    console.log(
-      shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled",
-    );
+    console.log(shareSafe ? "🛡 Share Safe Enabled" : "🛡 Share Safe Disabled");
   });
 
   overlay.loadFile(path.join(__dirname, "overlay.html"));

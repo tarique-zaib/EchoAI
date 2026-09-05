@@ -316,6 +316,10 @@ select {
   font-size: 15px;
   line-height: 1.8;
   color: rgba(255, 255, 255, 0.92);
+  display: block;
+  width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
 }
 
 .answer-container::-webkit-scrollbar {
@@ -798,7 +802,7 @@ body.camera-mode .question {
 body.camera-mode .card {
   position: relative;
   width: 100%;
-  height: 100vh;
+  height: auto;
   margin: 0;
   padding: 12px 16px;
   box-sizing: border-box;
@@ -825,11 +829,12 @@ body.camera-mode .drag-bar {
 /* THIS is the important part */
 
 body.camera-mode .answer-panel {
-  display: block !important;
+  display: flex !important;
   margin: 12px 0 0;
   padding: 0;
   background: none;
   border: none;
+  flex: 1;
 }
 
 body.camera-mode .answer-container::-webkit-scrollbar {
@@ -838,12 +843,10 @@ body.camera-mode .answer-container::-webkit-scrollbar {
 
 body.camera-mode .answer-container {
   width: 100%;
-  height: 160px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 8px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 body.camera-mode .answer {

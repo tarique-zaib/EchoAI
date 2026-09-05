@@ -78,6 +78,12 @@ public class AIAnswerService
             prompt,
             stream = true,
             keep_alive = "30m",
+            stop = new[]
+            {
+                "\n\nInterviewer:",
+                "\n\nQuestion:",
+                "\n\nFollow-up:"
+            },
             options = new
             {
                 temperature = mode switch
@@ -91,12 +97,12 @@ public class AIAnswerService
                 repeat_penalty = 1.15,
                 num_predict = mode switch
                 {
-                    "quick" => 120,
-                    "detailed" => 480,
-                    "interview" => 180,
-                    _ => 250
+                    "quick" => 90,
+                    "detailed" => 140,
+                    "interview" => 120,
+                    _ => 180
                 },
-                num_ctx = 2048
+                num_ctx = 1024
             }
         };
 
